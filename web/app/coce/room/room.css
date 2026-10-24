@@ -1,0 +1,414 @@
+/* tcf.monster — the comprehension rooms (practice, exam, review). Every value comes from tokens.css; one phone block at
+   the end. A room fills its frame and never scrolls as a page: the passage, the transcript and the question column
+   scroll inside themselves; the player and the panel line stay. The room rule (docs/COCE.md §4): the top line and the
+   footer are floating layers — the room's background at 55 % with `color-mix` + an iOS-style `backdrop-filter`
+   blur —, no hairline, no solid strip; the body runs under them from the very top to the very bottom, and the scroll
+   areas keep their heights free (--cr-head, --cr-foot) so the first and last lines can be reached. Flat on purpose:
+   one vertical hairline between the two panels; inside the body only the reading paper, the hint paper and the spoken
+   question's small box have a background of their own. The frame mounts a room in a padding-free main
+   (.page-app.mode-room); override --cr-height on the host when the room sits under bars of another size. */
+.cr { --cr-line: 56px; --room-bar: var(--cr-line); --cr-head: var(--cr-line); --cr-foot: 84px; --cr-glass: color-mix(in srgb, var(--bg) 55%, transparent); position: relative; display: flex; flex-direction: column; height: var(--cr-height, 100dvh); min-height: 0; background: var(--bg); color: var(--ink); }
+.cr-exam-wrap { display: contents; }
+.cr[data-mode="exam"] { position: fixed; inset: 0; z-index: 40; height: auto; animation: cr-in var(--duration-move) var(--ease-out); }
+@keyframes cr-in { from { opacity: 0; } }
+.cr-exam-wrap[data-frozen] .cr-body, .cr-exam-wrap[data-frozen] .cr-foot { pointer-events: none; opacity: .6; }
+/* the two floating layers: one rule set, light and dark alike (the mix follows --bg) */
+.cr-foot { position: absolute; left: 0; right: 0; z-index: 3; background: var(--cr-glass); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); }
+.cr-foot { bottom: 0; }
+
+/* ---------- the top line is the one every room shares (web/app/room-bar.tsx, sim.css .room-bar): 76 px with 24 px
+   kept above, so the back circle's centre sits at 50 px, where the rail's logo has its own ---------- */
+/* the top line sits close to the top on laptops (the owner, 2026-10-24: there was too much room above it) */
+.cr-head.room-bar { padding-top: 4px; padding-left: 10px; }
+.cr-head.room-bar .room-bar-left { gap: 10px; }
+/* the test's name, the same small caps as the stations' */
+.cr-title { display: inline-flex; align-items: center; gap: 2px; font-family: var(--font-sans); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); line-height: 16px; white-space: nowrap; }
+.cr-title-text { white-space: pre; }
+.cr-helps { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.cr-helps::-webkit-scrollbar { display: none; }
+.cr-head-clock { display: inline-flex; align-items: center; }
+/* the bar: « 12 / 110 » in small mono, the level's colours in proportion (the rest grey), then in practice the four
+   counts as tiny dots; one button: a press focuses the rail (laptop) or opens the picker (phone) */
+.cr-bar { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: none; cursor: pointer; }
+.cr-bar:hover { background: var(--surface-2); }
+.cr-bar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cr-bar-n { font-family: var(--font-mono); font-weight: 700; font-size: 12px; letter-spacing: .02em; color: var(--ink-muted); white-space: nowrap; }
+.cr-bar-track { display: flex; width: 160px; height: 6px; border-radius: var(--radius-pill); background: var(--new); overflow: hidden; }
+.cr-bar-track i { display: block; height: 100%; flex: none; transition: width var(--duration-move) var(--ease-out); }
+.cr-bar-dots { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-weight: 700; font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
+.cr-bar-dots > span { display: inline-flex; align-items: center; gap: 3px; }
+.cr-bar-dots i { width: 6px; height: 6px; border-radius: 50%; }
+.cr-bar-green { background: var(--ok); }
+.cr-bar-amber { background: var(--amber); }
+.cr-bar-red { background: var(--bad); }
+.cr-bar-grey { background: var(--new); box-shadow: inset 0 0 0 1px var(--line); }
+.cr-bar-done { background: var(--ink); }
+
+/* a toggle: the label is the control, a slim pill thumb shows the state; no box around it. With two words
+   (« Texte complet ○ Indice court ») the thumb sits by the chosen word and both words stay in place. */
+.cr-switch { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 8px; border: 0; border-radius: var(--radius-pill); background: none; font-weight: 700; font-size: 13px; color: var(--ink-muted); cursor: pointer; white-space: nowrap; transition: color var(--duration-quick), background var(--duration-quick); }
+.cr-switch:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); }
+.cr-switch[aria-pressed="true"] { color: var(--ink); }
+.cr-switch:disabled { opacity: .45; cursor: not-allowed; }
+.cr-switch-track { position: relative; display: inline-block; width: 24px; height: 14px; border-radius: var(--radius-pill); background: var(--line); transition: background var(--duration-quick); }
+.cr-switch-knob { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--surface); transition: transform var(--duration-quick) var(--ease-out); }
+.cr-switch[aria-pressed="true"] .cr-switch-track { background: var(--ink); }
+.cr-switch[aria-pressed="true"] .cr-switch-knob { transform: translateX(10px); background: var(--sun); }
+.cr-switch[data-two] { color: var(--ink-muted); }
+.cr-switch[data-two] .cr-switch-track { background: var(--ink); }
+.cr-switch[data-two] .cr-switch-knob { background: var(--sun); }
+.cr-switch[data-two][aria-pressed="false"] .cr-switch-off, .cr-switch[data-two][aria-pressed="true"] .cr-switch-on { color: var(--ink); }
+
+/* a band: a state that lasts, inside the room; it hangs under the floating top line and the body keeps its height free */
+.cr[data-band] { --cr-head: calc(var(--cr-line) + 44px); }
+.cr-band { position: absolute; left: 0; right: 0; top: var(--cr-line); z-index: 3; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; background: var(--amber-soft); font-weight: 700; font-size: 14px; line-height: 1.4; }
+.cr-band.bad { background: var(--bad-soft); justify-content: space-between; }
+.cr-band > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-body .cr-band { position: static; height: auto; padding: 10px 16px; border-radius: var(--radius-md); white-space: normal; }
+.cr-band .btn { flex: none; }
+
+/* ---------- body: the question rail, then two panels on laptop ---------- */
+/* the one row is pinned to the body's height (minmax(0, 1fr)), so a long rail scrolls inside its column, never past it */
+.cr-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.cr-body[data-rail] { grid-template-columns: 48px minmax(0, 1fr) minmax(0, 1fr); }
+/* the rail: one column of round discs, the same as the phone's strip; the laptop's only list of the questions */
+.cr-rail { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 48px; min-height: 0; padding: calc(var(--cr-head) + 6px) 0 var(--cr-foot); overflow-y: auto; scroll-padding: var(--cr-head) 0 var(--cr-foot); overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none; }
+.cr-rail::-webkit-scrollbar { display: none; }
+.cr-rail:focus { outline: none; }
+.cr-rail-item.cr-disc { position: static; }
+
+/* the left panel: what stays (the player, the panel line) starts under the top line; what scrolls (.cr-text) runs under
+   both layers when it comes first */
+.cr-left { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--line); }
+.cr-left > :first-child:not(.cr-text) { margin-top: var(--cr-head); }
+.cr-right { display: flex; flex-direction: column; gap: 16px; min-height: 0; min-width: 0; overflow: auto; padding: calc(20px + var(--cr-head)) 28px calc(24px + var(--cr-foot)); scroll-padding: var(--cr-head) 0 var(--cr-foot); }
+.cr-text { flex: 1; min-height: 0; overflow: auto; padding: 14px 28px calc(24px + var(--cr-foot)); display: flex; flex-direction: column; gap: 16px; scroll-padding: var(--cr-head) 0 var(--cr-foot); }
+.cr-left > .cr-text:first-child { padding-top: calc(14px + var(--cr-head)); }
+.cr-text:empty { display: none; }
+/* the line at the top of the left panel: the toggles, right-aligned; no box */
+.cr-panel-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 4px 6px; flex-wrap: wrap; padding: 12px 20px 0; }
+.cr-panel-view { animation: cr-fade var(--duration-move) var(--ease-out); }
+@keyframes cr-fade { from { opacity: 0; } }
+.cr-picture { max-width: 100%; height: auto; border-radius: var(--radius-md); }
+/* the paper: a soft yellow sheet for the French, a second one under it for the English, the same for the hint */
+.cr-papers { display: flex; flex-direction: column; gap: 12px; }
+.cr-paper { display: flex; flex-direction: column; gap: 12px; padding: 22px 26px; border: 1px solid var(--sun); border-radius: var(--radius-md); background: var(--sun-soft); font-family: var(--font-display); font-size: 17px; line-height: 1.6; color: var(--ink); }
+/* the hint is help, not the passage: its paper is the surface-2 tone with a plain hairline, never the text's yellow */
+.cr-hint .cr-paper { font-family: var(--font-sans); font-size: 15px; line-height: 1.5; gap: 6px; padding: 16px 20px; background: var(--surface-2); border-color: var(--line); }
+/* the one line above the hint paper: a summary written for practice, not the original text */
+.cr-hint-note { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+.cr-hint { gap: 6px; }
+.cr-hint ul { padding-left: 18px; list-style: disc; display: flex; flex-direction: column; gap: 4px; }
+/* the key sentence, once the answer is known: a quiet underline, no highlight */
+.cr-key { background: none; color: inherit; box-shadow: inset 0 -2px 0 var(--sun); }
+.cr-paper .cr-key { box-shadow: inset 0 -2px 0 var(--amber); }
+/* « FR » / « EN » over a text when its translation is shown too; two columns (the hint, the transcript) side by side,
+   French at the left */
+.cr-sheet { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cr-langtag { align-self: flex-start; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); font-family: var(--font-mono); font-weight: 700; font-size: 11px; letter-spacing: .06em; color: var(--ink-muted); }
+.cr-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.cr-cols > .cr-sheet { gap: 12px; }
+/* French, then the English below it after a thin divider, in exactly the same type (the transcript's speech) */
+.cr-bi { display: flex; flex-direction: column; gap: 14px; }
+.cr-bi-fr, .cr-bi-en { display: flex; flex-direction: column; gap: 12px; font-family: var(--font-display); font-size: 17px; line-height: 1.6; color: var(--ink); }
+.cr-bi-en { padding-top: 14px; border-top: 1px solid var(--line); }
+/* the English of a stem, an option, a key sentence: to the right of the French on the same line, smaller, italic, muted */
+.cr-en { margin-left: 10px; font-size: .86em; font-style: italic; font-weight: 500; color: var(--ink-muted); }
+
+/* the one FR | EN pill of a page (the panel line on the laptop, above the player or the passage on phones) */
+.cr-seg { display: inline-flex; flex: none; padding: 2px; border: 1.5px solid var(--line); border-radius: var(--radius-pill); background: var(--surface); }
+.cr-seg button { height: 26px; padding: 0 10px; border: 0; border-radius: var(--radius-pill); background: none; font: inherit; font-size: 11px; font-weight: 800; color: var(--ink-muted); cursor: pointer; white-space: nowrap; }
+.cr-seg button[aria-checked="true"] { background: var(--ink); color: var(--bg); }
+.cr-seg button:disabled { opacity: .4; cursor: default; }
+/* English on: the page turns, never both languages at once — the FR sheet of a transcript, a hint or a passage goes,
+   and a stem, an option or a key sentence shows its English alone, in the French's own type */
+.cr[data-english] .cr-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.cr[data-english] .cr-cols > .cr-sheet:first-child, .cr[data-english] .cr-passage > .cr-sheet:first-child { display: none; }
+.cr[data-english] .cr-langtag { display: none; }
+.cr[data-english] :is(.cr-stem p, .cr-opt-text, .cr-fb-key p) > [lang="fr"]:has(+ .cr-en) { display: none; }
+.cr[data-english] .cr-opt[data-spoken] .cr-opt-text > span:first-child:has(+ .cr-en) { display: none; }
+.cr[data-english] .cr-en { display: inline; margin: 0; font-size: inherit; font-style: normal; font-weight: inherit; color: inherit; }
+
+/* ---------- the player: one dark pill, the same in practice, the exam, the review, on laptop and phone ---------- */
+.cr-player { flex: none; padding: 16px 20px 0 28px; }
+.cr-pill { display: flex; align-items: center; gap: 12px; padding: 6px 16px 6px 6px; border-radius: var(--radius-pill); background: var(--hall); color: var(--hall-ink); }
+.cr-play { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 0; padding: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; transition: transform var(--duration-quick) var(--ease-out), background var(--duration-quick); }
+.cr-play:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--hall-ink)); }
+.cr-play:active:not(:disabled) { transform: scale(.96); }
+.cr-play:disabled { background: color-mix(in srgb, var(--hall-ink) 25%, transparent); color: var(--hall-ink); cursor: default; }
+.cr-player[data-locked] .cr-play[aria-pressed="true"] { cursor: default; }
+.icon-fill { fill: currentColor; stroke: none; }
+/* the thin line: a 4 px track, the sun up to the position (--p), a small round thumb; a plain line in the strict exam */
+.cr-scrub { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; width: auto; height: 20px; margin: 0; background: none; cursor: pointer; --p: 0%; }
+.cr-scrub::-webkit-slider-runnable-track { height: 4px; border-radius: var(--radius-pill); background: linear-gradient(to right, var(--sun) var(--p), color-mix(in srgb, var(--hall-ink) 25%, transparent) var(--p)); }
+.cr-scrub::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; border: 0; background: var(--sun); }
+.cr-scrub::-moz-range-track { height: 4px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--hall-ink) 25%, transparent); }
+.cr-scrub::-moz-range-progress { height: 4px; border-radius: var(--radius-pill); background: var(--sun); }
+.cr-scrub::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; border: 0; background: var(--sun); }
+.cr-scrub:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; border-radius: var(--radius-pill); }
+.cr-progress { flex: 1; min-width: 0; height: 4px; margin: 0; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--hall-ink) 25%, transparent); overflow: hidden; }
+.cr-progress i { display: block; height: 100%; background: var(--sun); }
+.cr-player-times { flex: none; font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: .02em; color: color-mix(in srgb, var(--hall-ink) 65%, transparent); white-space: nowrap; }
+.cr-player-failed { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 40px; padding-left: 10px; font-weight: 700; }
+.cr-player-failed .btn { border-color: var(--hall-ink); background: var(--hall-ink); color: var(--hall); box-shadow: none; }
+/* the exam's grace after a recording: a line drains, then the next question comes by itself */
+.cr-grace { flex: none; height: 4px; margin: 10px 28px 0; border-radius: var(--radius-pill); background: var(--new); overflow: hidden; }
+.cr-grace i { display: block; height: 100%; background: var(--accent); transform-origin: left; animation: cr-grace 8s linear forwards; /* the room sets the real duration */ }
+@keyframes cr-grace { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ---------- the transcript: the spoken question in its small box, the speech, the spoken options as a list ---------- */
+.cr-transcript { display: flex; flex-direction: column; gap: 16px; }
+.cr-q { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); font-weight: 700; font-size: 15px; line-height: 1.45; }
+.cr-q-mark { width: 24px; height: 24px; margin-top: 1px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: var(--bg); font-family: var(--font-sans); font-size: 13px; font-weight: 800; }
+.cr-q-text { min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+button.cr-q-text { cursor: pointer; }
+button.cr-q-text:hover { color: var(--accent); }
+.cr-words { line-height: 1.9; }
+.cr-word { border: 0; background: none; padding: 0 2px; margin: 0; font: inherit; color: inherit; border-radius: 4px; cursor: pointer; transition: background var(--duration-quick); }
+.cr-word:hover { background: var(--surface-2); }
+.cr-transcript[data-live] .cr-word[data-state="heard"] { color: var(--ink-muted); }
+/* the word being spoken: a soft light and a line under it, the text keeps its own colour (readable in dark too) */
+.cr-word[data-state="now"] { background: var(--sun-soft); box-shadow: inset 0 -2px 0 var(--sun); color: var(--ink); }
+.cr-spoken { display: flex; flex-direction: column; gap: 6px; padding: 0; list-style: none; font-size: 15px; line-height: 1.45; }
+.cr-spoken li { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: baseline; gap: 8px; }
+.cr-spoken-key { font-family: var(--font-mono); font-weight: 700; font-size: 13px; color: var(--ink-muted); }
+.cr-spoken-text { min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+button.cr-spoken-text { cursor: pointer; }
+button.cr-spoken-text:hover { color: var(--accent); }
+
+/* ---------- the question ---------- */
+.cr-stem p { font-weight: 800; font-size: 18px; line-height: 1.4; }
+.cr-options { display: flex; flex-direction: column; gap: 10px; }
+.cr-opt { display: grid; grid-template-columns: 34px minmax(0, 1fr) 22px; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border: var(--border-strong) solid var(--line); border-radius: var(--radius-md); background: var(--surface); text-align: left; font: inherit; color: var(--ink); cursor: pointer; transition: border-color var(--duration-quick), background var(--duration-quick), box-shadow var(--duration-quick); }
+.cr-opt:hover:not([aria-disabled]) { border-color: var(--ink); }
+.cr-opt[aria-disabled] { cursor: default; }
+.cr-opt-key { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); font-family: var(--font-mono); font-weight: 700; font-size: 14px; }
+.cr-opt-text { display: block; font-size: 16px; line-height: 1.4; }
+.cr-opt-mark { display: grid; place-items: center; }
+.cr-opt[data-state="chosen"] { border-color: var(--ink); box-shadow: var(--shadow-press); }
+.cr-opt[data-state="right"], .cr-opt[data-state="late"] { border-color: var(--ok); background: var(--ok-soft); }
+.cr-opt[data-state="right"] .cr-opt-key, .cr-opt[data-state="late"] .cr-opt-key { background: var(--ok); color: var(--surface); }
+.cr-opt[data-state="right"] .cr-opt-mark, .cr-opt[data-state="late"] .cr-opt-mark { color: var(--ok); }
+.cr-opt[data-state="wrong"] { border-color: var(--bad); background: var(--bad-soft); }
+.cr-opt[data-state="wrong"] .cr-opt-key { background: var(--bad); color: var(--surface); }
+.cr-opt[data-state="wrong"] .cr-opt-mark { color: var(--bad); }
+.cr-opt[data-state="dim"] { opacity: .5; }
+.cr-opt-mark .icon { stroke-width: 3; }
+/* spoken options: four big letters */
+/* a spoken option: the same row, its words in the muted ink (the option is heard, not read) */
+.cr-opt[data-spoken] .cr-opt-text { font-weight: 700; color: var(--ink-muted); }
+.cr-opt[data-spoken][data-state="chosen"] .cr-opt-text, .cr-opt[data-spoken][data-state="right"] .cr-opt-text, .cr-opt[data-spoken][data-state="late"] .cr-opt-text, .cr-opt[data-spoken][data-state="wrong"] .cr-opt-text { color: var(--ink); }
+
+/* the feedback: nothing until an answer, then it fades in; a bar at its left, no box */
+.cr-fb { flex: none; padding: 2px 0 2px 16px; border-left: 3px solid var(--line); display: flex; flex-direction: column; gap: 12px; animation: cr-rise var(--duration-move) var(--ease-out); }
+@keyframes cr-rise { from { opacity: 0; transform: translateY(4px); } }
+.cr-fb[data-tone="ok"] { border-left-color: var(--ok); }
+.cr-fb[data-tone="bad"] { border-left-color: var(--bad); }
+.cr-fb-block h3 { font-size: 13px; font-weight: 800; letter-spacing: .01em; color: var(--ink-muted); margin-bottom: 2px; }
+.cr-fb-block[data-tone="ok"] h3 { color: var(--ok); }
+.cr-fb-block[data-tone="bad"] h3 { color: var(--bad); }
+.cr-fb-block p { font-size: 15px; line-height: 1.5; }
+.cr-fb-key p { font-family: var(--font-display); font-size: 16px; }
+
+/* ---------- footer: floating over the bottom of the body; the number strip on its own row (practice), then one line of
+   buttons that keep their own pills ---------- */
+/* the number strip is the phone's (the laptop has the rail at the left) */
+.cr-foot .cr-foot-strip { display: none; }
+.cr-foot { display: flex; flex-direction: column; height: var(--cr-foot); padding: 0; }
+.cr-foot:not(:has(.cr-foot-strip)):has(> .cr-foot-row:empty) { display: none; }
+.cr-foot-row { flex: 1; min-height: 0; display: flex; align-items: center; gap: 10px; padding: 0 20px 20px; }
+.cr-foot-strip { flex: none; display: flex; justify-content: center; padding: 6px 20px 0; }
+/* the number strip: full discs in the question's colour, grey when unseen, the current one bigger and ringed in the accent */
+.cr-strip { display: flex; align-items: center; justify-content: safe center; gap: 8px; max-width: 100%; height: 48px; padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.cr-strip::-webkit-scrollbar { display: none; }
+.cr-disc { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; padding: 0; border-radius: 50%; background: var(--new); font: inherit; font-size: 13px; font-weight: 800; color: var(--ink-muted); transition: transform var(--duration-quick) var(--ease-out); }
+button.cr-disc { cursor: pointer; }
+button.cr-disc:hover { transform: translateY(-1px); }
+button.cr-disc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cr-disc[data-tone="green"] { background: var(--ok); color: var(--surface); }
+.cr-disc[data-tone="amber"] { background: var(--amber); color: var(--surface); }
+.cr-disc[data-tone="red"] { background: var(--bad); color: var(--surface); }
+.cr-disc[data-tone="done"] { background: var(--ink); color: var(--bg); }
+.cr-disc[data-tone="todo"] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+button.cr-disc:active { transform: translateY(1px); }
+.cr-disc[aria-current="true"], .cr-disc[aria-current="true"][data-tone] { background: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+.cr-foot-mid { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+.cr-saved { min-width: 6em; text-align: center; font-size: 13px; font-weight: 700; color: var(--ok); }
+.cr-main { min-width: 150px; }
+.cr-prev { min-width: 110px; }
+.cr-retry { min-width: 120px; }
+.cr-reset { border-color: var(--line); box-shadow: none; font-size: 13px; }
+.cr-reset:hover:not(:disabled) { border-color: var(--ink); }
+.cr-mark { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1.5px solid; border-radius: var(--radius-pill); background: none; font-weight: 800; font-size: 13px; cursor: pointer; }
+.cr-mark[data-tone="green"] { color: var(--amber); border-color: var(--amber); background: var(--amber-soft); }
+.cr-mark[data-tone="amber"] { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+
+/* ---------- the picker (phones): a bottom sheet of coloured squares; the unanswered list of the finish sheet too ---------- */
+.cr-picker { margin: auto auto 0; width: 100vw; }
+.cr-picker-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.cr-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; max-height: 50vh; overflow: auto; padding: 2px var(--sb-gutter) 2px 2px; }
+.cr-pick { height: 44px; display: grid; place-items: center; border: var(--border-strong) solid var(--line); border-radius: var(--radius-sm); background: var(--new); font: inherit; font-weight: 800; font-size: 14px; color: var(--ink); cursor: default; }
+button.cr-pick { cursor: pointer; }
+button.cr-pick:hover { border-color: var(--ink); }
+.cr-pick[data-tone="green"] { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.cr-pick[data-tone="red"] { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.cr-pick[data-tone="amber"] { background: var(--amber); border-color: var(--amber); color: var(--surface); }
+.cr-pick[data-tone="done"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.cr-pick[data-tone="todo"] { background: var(--surface); }
+.cr-pick[aria-current="true"] { outline: 3px solid var(--accent); outline-offset: 1px; }
+.cr-pick-dot { width: 14px; height: 14px; border-width: 1px; border-radius: 4px; }
+.cr-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.cr-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.cr-unanswered { display: flex; flex-wrap: wrap; gap: 6px; }
+/* the stop sheet: every question as a disc, answered ones filled in ink (right or wrong is unknown during an exam) */
+.cr-cells { display: flex; flex-wrap: wrap; gap: 6px; }
+.cr-cells .cr-disc[aria-current="true"] { background: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+.cr-finish .sheet-actions { flex-direction: row; }
+.cr-finish .sheet-actions .btn { flex: 1; width: auto; min-width: 0; height: auto; min-height: 44px; padding: 8px 10px; font-size: 14px; white-space: normal; line-height: 1.2; }
+.cr-unanswered .cr-pick { width: 40px; height: 40px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr, .cr-fb, .cr[data-mode="exam"], .cr-panel-view { animation: none; }
+  .cr-switch-knob, .cr-switch-track, .cr-opt, .cr-word, .cr-bar-track i, .cr-play { transition: none; }
+}
+
+/* ---------- tablet ---------- */
+@media (max-width: 1080px) {
+  .cr-head.room-bar { column-gap: 10px; padding: 4px 12px 0 6px; }
+  .cr-bar { gap: 8px; }
+  .cr-bar-track { width: 110px; }
+  .cr-bar-dots { display: none; }
+  .cr-text, .cr-right { padding-left: 20px; padding-right: 20px; }
+  .cr-panel-bar { padding: 10px 14px 0; }
+  .cr-player { padding: 12px 14px 0 20px; }
+  .cr-foot-row { padding: 0 14px 16px; }
+  .cr-grace { margin: 8px 20px 0; }
+  .cr-paper { padding: 18px 20px; }
+}
+
+/* ---------- phones: one block. The top line is one row (the back, « CO · B1 » over « question 4 sur 172 », the ⋯);
+   the body scrolls as one page under the floating lines — the player, the question, then the folded containers —; the
+   footer never moves: the number strip, the round back arrow, « Enregistré », « Suivant › » ---------- */
+@media (max-width: 760px) {
+  .cr { --cr-height: calc(100dvh - 56px); --cr-line: 64px; --cr-foot: calc(76px + env(safe-area-inset-bottom)); }
+  /* practice: the top line scrolls away with the page (the window scrolls); only the footer is fixed */
+  .cr[data-mode="practice"] { height: auto; min-height: var(--cr-height); }
+  .cr[data-mode="practice"] .cr-head.room-bar { position: static; height: auto; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .cr[data-mode="practice"] .cr-body { overflow: visible; padding-top: 12px; }
+  .cr[data-mode="practice"] .cr-foot { position: fixed; }
+  .cr[data-mode="exam"] { --cr-line: 56px; --cr-foot: calc(72px + env(safe-area-inset-bottom)); }
+  .cr-band { padding: 0 12px; font-size: 13px; }
+  /* three items, the middle one truly centred: back + icon + code (accent) · the level or « n° 9 » · the count and ⋯ (or the clock) */
+  .cr-head.room-bar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: 48px; padding: 8px 12px 0 10px; column-gap: 8px; row-gap: 0; }
+  .cr-head.room-bar .room-bar-left { gap: 10px; min-width: 0; }
+  .cr-head.room-bar .room-bar-centre { display: inline-flex; }
+  .cr-head.room-bar .cr-bar, .cr-head.room-bar .room-time { display: none; }
+  .cr-head.room-bar .room-bar-right { gap: 10px; }
+  .cr-title-mid { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .cr[data-mode="exam"] .cr-head.room-bar { padding: 4px 14px 0 16px; }
+  .cr[data-mode="exam"] .cr-head .room-bar-left { gap: 10px; }
+  .cr-title-block { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .cr-head .cr-title.sim-caps { font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink); line-height: 1.2; }
+  .cr-title-code { white-space: nowrap; }
+  .cr-title-code b { color: var(--accent); font-weight: 700; }
+  .cr-title-code .muted { color: var(--ink-muted); }
+  .cr-title-code b { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); }
+  .cr-title-sub { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--ink-muted); white-space: nowrap; }
+  .cr-more-btn { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: var(--border-strong) solid var(--ink); background: var(--surface); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+  .cr-more-btn[aria-expanded="true"] { background: var(--ink); color: var(--bg); }
+  .cr-helps { gap: 6px; }
+  .cr-helps:empty { display: none; }
+  .cr-bar-dots { display: none; }
+  /* the exam: nothing scrolls as a page; the passage (or the player and its picture) in a box that scrolls inside
+     itself, the options docked above the footer in a box of their own, the same place whatever the question */
+  .cr[data-mode="exam"] .cr-body { overflow: hidden; gap: 10px; padding-bottom: var(--cr-foot); }
+  .cr[data-mode="exam"] .cr-left { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 10px; }
+  .cr[data-mode="exam"] .cr-text { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: var(--sb-gutter); scrollbar-width: none; }
+  .cr[data-mode="exam"] .cr-right { flex: none; height: 332px; overflow: auto; padding: 10px 0 8px; border-top: 1px solid var(--line); scrollbar-width: none; }
+  .cr-switch { height: 28px; font-size: 12px; padding: 0 6px; }
+  /* the body is the page: it scrolls under the top line and the footer; the two panels lose their boxes */
+  .cr-body { display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: calc(var(--cr-head) + 12px) 16px calc(var(--cr-foot) + 12px); scroll-padding: var(--cr-head) 0 var(--cr-foot); overscroll-behavior: contain; }
+  .cr-rail { display: none; }
+  .cr-left { display: contents; }
+  .cr-left > :first-child:not(.cr-text) { margin-top: 0; }
+  .cr-player, .cr-picture-top, .cr-panel-bar, .cr-grace { order: 1; }
+  .cr-player { padding: 0; }
+  .cr-grace { margin: 0; }
+  .cr-panel-bar { padding: 0; justify-content: flex-start; gap: 8px; flex-wrap: nowrap; }
+  .cr-text, .cr-left > .cr-text:first-child { order: 2; flex: none; overflow: visible; padding: 0; gap: 12px; }
+  .cr-right { order: 3; flex: none; overflow: visible; max-height: none; padding: 0; gap: 12px; border: 0; }
+  .cr[data-section="co"] .cr-text { order: 4; }
+  .cr-text:empty { display: none; }
+  .cr-paper { padding: 14px 16px; font-size: 15px; }
+  .cr-hint .cr-paper { padding: 12px 14px; }
+  .cr-bi { gap: 10px; }
+  .cr-bi-fr, .cr-bi-en { font-size: 15px; }
+  .cr-bi-en { padding-top: 10px; }
+  .cr-en { display: block; margin-left: 0; margin-top: 2px; }
+  /* the folded containers: the name opens it, « FR | EN » in its header, the chevron turns */
+  .cr-folds { gap: 10px; }
+  .cr-fold { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .cr-fold-head { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; }
+  .cr-fold-btn { flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 8px 0; font: inherit; font-weight: 800; font-size: 14px; color: var(--ink); cursor: pointer; }
+  .cr-fold-btn:disabled { color: var(--ink-muted); cursor: default; }
+  .cr-fold-chev { flex: none; width: 32px; height: 32px; border: 0; background: none; padding: 0; color: var(--ink-muted); display: grid; place-items: center; cursor: pointer; transition: transform var(--duration-quick) var(--ease-out); }
+  .cr-fold-chev:disabled { opacity: .4; cursor: default; }
+  .cr-fold[data-open] .cr-fold-chev { transform: rotate(180deg); }
+  .cr-fold-body { padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+  .cr-fold-body .cr-hint-note { margin-bottom: 4px; }
+  .cr-panel-bar .cr-seg button { height: 30px; padding: 0 12px; font-size: 12px; }
+  /* the phone's English: the whole page turns, nothing is shown twice */
+  .cr-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  /* the question */
+  .cr-stem p { font-size: 16px; }
+  .cr-options { gap: 8px; }
+  .cr-opt { grid-template-columns: 30px minmax(0, 1fr) 20px; min-height: 48px; padding: 8px 12px; gap: 10px; }
+  .cr-opt-key { width: 28px; height: 28px; font-size: 13px; }
+  .cr-opt-text { font-size: 15px; }
+  .cr-fb { padding-left: 14px; gap: 8px; }
+  /* the footer, one row that never moves: « ‹ » at the left, « › » (accent) at the right, the number strip between them
+     with a fade at both edges; « Enregistré » flashes just above it */
+  .cr[data-strip] { --cr-foot: calc(72px + env(safe-area-inset-bottom)); }
+  .cr-foot .cr-foot-strip { display: flex; }
+  .cr-foot { flex-direction: row; align-items: center; gap: 8px; padding: 0 12px calc(14px + env(safe-area-inset-bottom)); }
+  .cr-foot-row { display: contents; }
+  .cr-foot-strip { order: 2; flex: 1; min-width: 0; position: relative; padding: 0; justify-content: flex-start; }
+  .cr-foot-strip::before, .cr-foot-strip::after { content: ""; position: absolute; top: 0; bottom: 0; width: 22px; z-index: 1; pointer-events: none; }
+  .cr-foot-strip::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .cr-foot-strip::after { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+  .cr-strip { height: 48px; gap: 6px; padding: 0 14px; justify-content: flex-start; width: 100%; }
+  .cr-foot .btn { height: 44px; padding: 0 14px; font-size: 14px; }
+  .cr-prev { order: 1; flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border-color: var(--ink); background: var(--surface); box-shadow: none; min-width: 0; }
+  .cr-main { order: 3; flex: none; min-width: 0; height: 44px; }
+  .cr[data-mode="practice"] .cr-main { width: 44px; padding: 0; border-radius: 50%; gap: 0; }
+  .cr[data-mode="practice"] .cr-main.plain { background: var(--surface); }
+  .cr-foot-mid { position: absolute; left: 0; right: 0; bottom: 100%; justify-content: center; pointer-events: none; }
+  .cr-saved { min-width: 0; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+  .cr-saved:not(:empty) { padding: 4px 10px; border-radius: var(--radius-pill); background: var(--ok-soft); margin-bottom: 6px; }
+  .cr-more-track { margin-left: auto; width: 34px; height: 20px; }
+  .cr-more-track .cr-switch-knob { width: 16px; height: 16px; }
+  .cr-more-row[aria-checked="true"] .cr-more-track { background: var(--ink); }
+  .cr-more-row[aria-checked="true"] .cr-switch-knob { transform: translateX(14px); background: var(--sun); }
+  /* the ⋯ sheet: one row per action with its small tile */
+  .cr-more { margin: auto auto 0; width: 100vw; }
+  .cr-more-body { display: flex; flex-direction: column; gap: 0; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); }
+  .cr-more-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); align-self: center; margin-bottom: 8px; }
+  .cr-more-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 4px; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+  .cr-more-row:first-of-type { border-top: 0; }
+  .cr-more-row:disabled { color: var(--ink-muted); cursor: default; }
+  .cr-more-row b { flex: 1; font-size: 15px; font-weight: 800; }
+  .cr-more-icon { flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); display: grid; place-items: center; }
+  .cr-more-row[data-tone="amber"] .cr-more-icon { background: var(--amber-soft); color: var(--amber); }
+  .cr-more-row[data-tone="ok"] .cr-more-icon { background: var(--ok-soft); color: var(--ok); }
+  .cr-more-row[data-tone="bad"] .cr-more-icon { background: var(--bad-soft); color: var(--bad); }
+  .cr-more-chev { color: var(--ink-muted); }
+  /* the exam's footer: the red stop, « ‹ », the grid button « 1 / 39 », « Suivant › » */
+  .cr[data-mode="exam"] .cr-foot-row { gap: 8px; }
+  .cr[data-mode="exam"] .cr-foot-mid { display: none; }
+  .cr[data-mode="exam"] .cr-prev, .cr-foot .btn.room-finish { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border-color: var(--line); background: var(--surface); box-shadow: none; }
+  .cr-foot .btn.room-finish { color: var(--bad); }
+  .cr-foot .btn.cr-grid { order: 2; flex: 1; min-width: 0; height: 44px; gap: 8px; font-family: var(--font-mono); font-size: 14px; box-shadow: none; }
+  .cr[data-mode="exam"] .cr-main { height: 44px; padding: 0 20px; }
+  .cr-picker-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 6px; max-height: 50dvh; }
+  .cr-pick { height: 40px; }
+}

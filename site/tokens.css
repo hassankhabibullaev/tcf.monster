@@ -1,0 +1,112 @@
+/* tcf.monster — generated from the design system's tokens.json. Do not edit by hand. */
+:root {
+  --bg: #fffbf2;
+  --surface: #ffffff;
+  --surface-2: #fff3df;
+  --ink: #23201c;
+  --ink-muted: #6e665c;
+  --line: #eadfcb;
+  --accent: #ff6b4a;
+  --on-accent: #23201c;
+  --accent-soft: #ffe6df;
+  --sun: #ffc940;
+  --sun-soft: #fff3c4;
+  --ok: #1f7d49;
+  --ok-soft: #e3f5ea;
+  --bad: #d4473f;
+  --bad-soft: #fde6e4;
+  --amber: #b26a00;
+  --amber-soft: #fff0d6;
+  --new: #f3ebdd;
+  --hall: #2a2724;
+  --hall-ink: #fffbf2;
+  --focus: #23201c;
+  --shadow-press: 0 3px 0 #23201c;
+  --shadow-card: 0 3px 0 #eadfcb;
+  --shadow-float: 0 12px 32px rgba(35,32,28,0.14);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  /* the scrollbar (public/scrollbars.js draws it): one colour, one shape, and a gutter it lives in. A scrolling area
+     keeps --sb-gutter of padding on its scrolling edge; the thumb is drawn inside that gutter and never over content */
+  --sb-thumb: color-mix(in srgb, var(--accent) 60%, transparent);
+  --sb-thumb-active: var(--accent);
+  --sb-size: 6px;
+  --sb-gutter: 14px;
+  --border-strong: 2px;
+  --border-hair: 1px;
+  --duration-quick: 120ms;
+  --duration-move: 260ms;
+  --duration-hall: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1d1b17;
+    --surface: #262320;
+    --surface-2: #2f2a22;
+    --ink: #f6f1e7;
+    --ink-muted: #b9b0a3;
+    --line: #3d372e;
+    --accent: #ff8a6e;
+    --on-accent: #1d1b17;
+    --accent-soft: #4a2b22;
+    --sun: #ffd166;
+    --sun-soft: #4a3f1a;
+    --ok: #5fcb8a;
+    --ok-soft: #1e3a2a;
+    --bad: #ff7a72;
+    --bad-soft: #4a2421;
+    --amber: #ffb94d;
+    --amber-soft: #4a3615;
+    --new: #3a3429;
+    --hall: #0f0e0c;
+    --hall-ink: #f6f1e7;
+    --focus: #ffd166;
+    --shadow-press: 0 3px 0 #000000;
+    --shadow-card: 0 3px 0 #0f0e0c;
+    --shadow-float: 0 12px 32px rgba(0,0,0,0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1d1b17;
+  --surface: #262320;
+  --surface-2: #2f2a22;
+  --ink: #f6f1e7;
+  --ink-muted: #b9b0a3;
+  --line: #3d372e;
+  --accent: #ff8a6e;
+  --on-accent: #1d1b17;
+  --accent-soft: #4a2b22;
+  --sun: #ffd166;
+  --sun-soft: #4a3f1a;
+  --ok: #5fcb8a;
+  --ok-soft: #1e3a2a;
+  --bad: #ff7a72;
+  --bad-soft: #4a2421;
+  --amber: #ffb94d;
+  --amber-soft: #4a3615;
+  --new: #3a3429;
+  --hall: #0f0e0c;
+  --hall-ink: #f6f1e7;
+  --focus: #ffd166;
+  --shadow-press: 0 3px 0 #000000;
+  --shadow-card: 0 3px 0 #0f0e0c;
+  --shadow-float: 0 12px 32px rgba(0,0,0,0.5);
+  color-scheme: dark;
+}

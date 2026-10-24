@@ -1,0 +1,30 @@
+{
+  "name": "tcf-monster",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && node scripts/copy-media.mjs && node scripts/keep-assets.mjs",
+    "dev": "vite build && node scripts/dev.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "deploy": "npm test && sh scripts/public-export.sh && npm run build && wrangler deploy -c wrangler.app.jsonc && sh scripts/public-export.sh --push",
+    "db:migrate:remote": "wrangler d1 migrations apply tcf-monster --remote -c wrangler.app.jsonc"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261016.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "fake-indexeddb": "^6.2.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.151.1"
+  }
+}

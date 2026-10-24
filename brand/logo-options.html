@@ -1,0 +1,173 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>tcf.monster — logo options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Nunito:wght@700;800;900&family=JetBrains+Mono:wght@700;800&display=swap">
+<style>/* Structure shared by the five design directions. Colours, type, radius come from ds1..ds5.css. */
+*{box-sizing:border-box}
+html,body{margin:0}
+.d-root{font-family:var(--font),system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+.d-root a{color:inherit;text-decoration:none}
+.d-root button{font:inherit}
+.spacer{flex:1}
+.row{display:flex;align-items:center;gap:12px}
+.col{display:flex;flex-direction:column;gap:10px}
+.d-bar{height:64px;flex:none;display:flex;align-items:center;gap:22px;padding:0 32px;border-bottom:1px solid var(--line);background:var(--bg)}
+.d-logo{width:30px;height:30px;border-radius:var(--r-sm);background:var(--accent);flex:none}
+.d-word{font-family:var(--font-display);font-weight:var(--w-display);font-size:17px;letter-spacing:var(--ls-display)}
+.d-nav{display:flex;gap:4px}
+.d-nav a{font-size:14px;padding:8px 12px;border-radius:var(--r-sm);color:var(--muted)}
+.d-nav a:hover{color:var(--ink);background:var(--surface-2)}
+.d-pill{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.d-btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 18px;border-radius:var(--r-btn);border:var(--btn-border);background:var(--surface);color:var(--ink);font-weight:600;font-size:15px;cursor:pointer;box-shadow:var(--btn-shadow);white-space:nowrap}
+.d-btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.d-btn.lg{height:52px;padding:0 26px;font-size:16px}
+.d-btn.ghost{background:transparent;border-color:var(--line);font-weight:500;box-shadow:none}
+.d-hero{flex:1;display:grid;grid-template-columns:1fr 520px;gap:56px;align-items:center;padding:0 80px}
+.d-kicker{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent)}
+.d-h1{margin:0;font-family:var(--font-display);font-weight:var(--w-display);font-size:54px;line-height:1.05;letter-spacing:var(--ls-display)}
+.d-lead{margin:0;font-size:18px;line-height:1.5;color:var(--muted)}
+.d-fine{font-size:13px;color:var(--muted)}
+.d-stage{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--card-shadow);height:400px}
+.d-tabs{display:flex;border-bottom:1px solid var(--line)}
+.d-tabs span{flex:1;text-align:center;padding:11px 0;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.d-tabs span.on{color:var(--ink);box-shadow:inset 0 -2px var(--accent)}
+.d-stage-body{padding:18px;display:flex;flex-direction:column;gap:10px;flex:1}
+.d-passage{padding:14px;border-radius:var(--r-sm);background:var(--surface-2);font-size:14px;line-height:1.5}
+.d-q{margin:0;font-weight:600;font-size:15px}
+.d-opt{display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);font-size:14px;color:var(--ink);text-align:left;width:100%;cursor:pointer}
+.d-opt b{width:24px;height:24px;border-radius:calc(var(--r-sm) - 1px);border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none;color:var(--muted)}
+.d-opt.ok{border-color:var(--ok);background:var(--ok-bg)}
+.d-opt.ok b{background:var(--ok);color:#fff;border-color:var(--ok)}
+.d-opt.bad{border-color:var(--bad);background:var(--bad-bg)}
+.d-opt.bad b{background:var(--bad);color:#fff;border-color:var(--bad)}
+.d-rail{width:76px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:6px;background:var(--rail-bg)}
+.d-rail a{width:60px;height:56px;border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+.d-rail a.on{background:var(--accent-soft);color:var(--accent)}
+.d-head{height:58px;flex:none;display:flex;align-items:center;gap:16px;padding:0 24px;border-bottom:1px solid var(--line);background:var(--bg)}
+.d-tog{display:inline-flex;align-items:center;height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;background:var(--surface);color:var(--muted);cursor:pointer}
+.d-tog.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.d-dots{display:flex;gap:4px}
+.d-dots i{width:12px;height:12px;border-radius:3px;background:var(--new);display:block}
+.d-dots i.ok{background:var(--ok)} .d-dots i.bad{background:var(--bad)} .d-dots i.warn{background:var(--warn)}
+.d-dots i.now{outline:2px solid var(--ink);outline-offset:1px}
+.d-hint{padding:14px 26px;border-bottom:1px solid var(--line);background:var(--accent-soft);font-size:14px;line-height:1.5}
+.d-hint b{color:var(--accent);font-size:11px;letter-spacing:.1em;display:block;margin-bottom:4px}
+.d-ln{height:10px;border-radius:5px;background:var(--line)}
+.d-why{min-height:88px;padding:14px 16px;border-radius:var(--r-sm);background:var(--surface-2);font-size:14px;line-height:1.5}
+.d-why b{display:block;font-size:11px;letter-spacing:.1em;color:var(--muted);margin-bottom:4px}
+.d-ph{width:390px;height:844px;display:flex;flex-direction:column}
+.d-phbar{height:54px;flex:none;display:flex;align-items:center;gap:10px;padding:0 16px}
+.d-ava{width:34px;height:34px;border-radius:50%;background:var(--line);flex:none}
+.d-mode{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.d-mode a{flex:1;text-align:center;padding:11px 0;font-size:15px;font-weight:600;color:var(--muted)}
+.d-mode a.on{background:var(--accent);color:var(--accent-ink)}
+.d-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--card-shadow)}
+.d-lvl{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);box-shadow:var(--card-shadow)}
+.d-lvl b{font-size:16px}
+.d-bar4{height:8px;border-radius:4px;background:var(--new);overflow:hidden;display:flex}
+.d-bar4 i{display:block;height:100%}
+.d-bar4 .ok{background:var(--ok)} .d-bar4 .warn{background:var(--warn)} .d-bar4 .bad{background:var(--bad)}
+.d-small{font-size:13px;color:var(--muted)}
+.d-tabbar{flex:none;height:76px;border-top:1px solid var(--line);display:flex;background:var(--bg);padding-bottom:8px}
+.d-tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+.d-tabbar a.on{color:var(--accent)}
+.d-tabbar i{width:22px;height:22px;border-radius:7px;background:currentColor;opacity:.9;display:block}
+.d-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+/* 5 · Playground — the most playful. Cream, coral and sun-yellow, rounded Nunito, chunky offset shadows. */
+.d-root{--bg:#FFFBF2;--surface:#FFFFFF;--surface-2:#FFF3DF;--rail-bg:#FFF7E8;--ink:#23201C;--muted:#6E665C;--line:#EADFCB;
+--accent:#FF6B4A;--accent-ink:#23201C;--accent-soft:#FFE6DF;--ok:#3BB273;--ok-bg:#E6F6EC;--bad:#F25F5C;--bad-bg:#FDE7E6;--warn:#E09E00;--new:#F3EBDD;
+--r:20px;--r-sm:14px;--r-btn:999px;--btn-border:2px solid #23201C;--btn-shadow:0 3px 0 #23201C;--card-shadow:0 3px 0 #EADFCB;
+--font:'Nunito';--font-display:'Fraunces';--w-display:700;--ls-display:-0.01em}
+.d-root .d-h1{font-size:56px}
+.d-root .d-opt{border-width:2px}
+.d-root .d-stage{border-width:2px;border-color:var(--ink);box-shadow:0 6px 0 var(--ink)}
+.d-root .d-mode{border-width:2px;border-color:var(--ink)}
+.d-root .d-lvl,.d-root .d-card{border-width:2px}
+.d-root .d-kicker{color:#C2410C}
+
+/* Logo option boards: left the wordmark, right the app icon (96) and the favicon (32). Variables from ds5.css. */
+.lg{width:560px;height:320px;display:grid;grid-template-columns:1fr 168px;gap:24px;padding:28px;box-sizing:border-box;align-items:center}
+.wm{display:flex;align-items:center;justify-content:center;min-height:200px}
+.icons{display:flex;flex-direction:column;align-items:center;gap:14px}
+.app{width:96px;height:96px;border-radius:22px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.fav{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.cap{font-family:var(--font);font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.serif{font-family:var(--font-display)}
+.sans{font-family:var(--font)}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.leaf{display:inline-block;vertical-align:baseline}
+.leaf polygon{stroke-linejoin:round}
+
+
+body{margin:0;padding:32px;background:#f0ece3;font-family:Nunito,system-ui;display:grid;grid-template-columns:repeat(auto-fill,560px);gap:28px;justify-content:center}
+figure{margin:0} .lg{background:#fffbf2;border:1px solid #e3dccb;border-radius:16px} figcaption{font-size:13px;font-weight:700;color:#6e665c;padding:8px 4px}
+</style></head><body><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="serif" style="font-size:62px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--ink)">tcf<span style="color:var(--accent)">.</span>monster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--accent);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);"><span class="serif" style="font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--accent);border:2px solid var(--ink)"><span class="serif" style="font-size:12px;font-weight:700;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">1 · FRAUNCES · CORAL DOT</span>
+  </div>
+</div><figcaption>Logo 1 · Fraunces, coral dot</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="serif" style="font-size:62px;font-weight:600;font-style:italic;letter-spacing:-.01em;line-height:1;color:var(--ink)">tcf<span style="font-style:normal">.</span><span style="color:var(--accent)">monster</span></span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--bg);border:3px solid var(--ink);"><span class="serif" style="font-size:34px;font-weight:600;font-style:italic;letter-spacing:-.01em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--bg);border:2px solid var(--ink)"><span class="serif" style="font-size:12px;font-weight:600;font-style:italic;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">2 · ITALIC · CORAL MONSTER</span>
+  </div>
+</div><figcaption>Logo 2 · Fraunces italic, monster in coral</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="sans" style="font-size:60px;font-weight:900;letter-spacing:-.045em;line-height:1;color:var(--ink)">tcf<span style="color:var(--sun)">.</span>monster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--sun);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);"><span class="sans" style="font-size:34px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--sun);border:2px solid var(--ink)"><span class="sans" style="font-size:12px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">3 · NUNITO · SUN DOT</span>
+  </div>
+</div><figcaption>Logo 3 · Nunito black, sun dot</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="sans" style="font-size:60px;font-weight:900;letter-spacing:-.045em;line-height:1;color:var(--ink);display:inline-flex;align-items:baseline">tcf<span style="color:var(--accent)">.</span>m<svg width="50" height="50" viewBox="0 0 100 100" aria-label="o" role="img" style="display:inline-block;vertical-align:-0.08em;margin:0 -0.02em"><polygon points="50,4 57,18 69,12 66,29 82,27 76,40 93,49 74,57 80,72 62,67 54,80 54,97 46,97 46,80 38,67 20,72 26,57 7,49 24,40 18,27 34,29 31,12 43,18" fill="var(--accent)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/></svg>nster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--accent);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);"><span class="sans" style="font-size:34px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--accent);border:2px solid var(--ink)"><span class="sans" style="font-size:12px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">4 · LEAF FOR THE O</span>
+  </div>
+</div><figcaption>Logo 4 · the o is a maple leaf</figcaption></figure><style>.bite{position:relative;display:inline-block}.bite i{position:absolute;right:-7px;top:3px;width:28px;height:28px;border-radius:50%;background:var(--bg)}</style><figure><div class="d-root lg">
+  <div class="wm"><span class="sans" style="font-size:60px;font-weight:900;letter-spacing:-.045em;line-height:1;color:var(--ink);display:inline-flex;align-items:baseline">tcf<span style="color:var(--accent)">.</span>m<span class="bite">o<i></i></span>nster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--accent);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink)"><span class="sans" style="font-size:34px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--accent);border:2px solid var(--ink)"><span class="sans" style="font-size:12px;font-weight:900;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">5 · BITE OUT OF THE O</span>
+  </div>
+</div><figcaption>Logo 5 · the bite</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="mono" style="font-size:54px;font-weight:800;letter-spacing:.02em;line-height:1;color:var(--ink)"><span style="color:var(--accent)">tcf</span>.monster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--ink);border:3px solid var(--ink);"><span class="mono" style="font-size:34px;font-weight:800;letter-spacing:.02em;color:var(--sun)">tcf</span></div>
+    <div class="fav" style="background:var(--ink);border:2px solid var(--ink)"><span class="mono" style="font-size:12px;font-weight:800;letter-spacing:-.05em;color:var(--sun)">tcf</span></div>
+    <span class="cap">6 · MONO · TWO COLOURS</span>
+  </div>
+</div><figcaption>Logo 6 · JetBrains Mono, two colours</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="serif" style="font-size:54px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--ink);background:var(--accent);padding:14px 24px;border-radius:18px;border:3px solid var(--ink);box-shadow:0 5px 0 var(--ink)">tcf.monster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--accent);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);"><span class="serif" style="font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--accent);border:2px solid var(--ink)"><span class="serif" style="font-size:12px;font-weight:700;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">7 · CORAL BLOCK</span>
+  </div>
+</div><figcaption>Logo 7 · Fraunces on a coral block</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="serif" style="font-size:60px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--ink);display:inline-flex;align-items:baseline">tcf<span style="color:var(--accent)">.m<svg width="46" height="46" viewBox="0 0 100 100" aria-label="o" role="img" style="display:inline-block;vertical-align:-0.08em;margin:0 -0.02em"><polygon points="50,4 57,18 69,12 66,29 82,27 76,40 93,49 74,57 80,72 62,67 54,80 54,97 46,97 46,80 38,67 20,72 26,57 7,49 24,40 18,27 34,29 31,12 43,18" fill="var(--sun)" stroke="var(--ink)" stroke-width="5" stroke-linejoin="round"/></svg>nster</span></span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--bg);border:3px solid var(--ink);"><span class="serif" style="font-size:34px;font-weight:700;letter-spacing:-.03em;color:var(--accent)">tcf</span></div>
+    <div class="fav" style="background:var(--bg);border:2px solid var(--ink)"><span class="serif" style="font-size:12px;font-weight:700;letter-spacing:-.05em;color:var(--accent)">tcf</span></div>
+    <span class="cap">8 · TWO-TONE · SUN LEAF O</span>
+  </div>
+</div><figcaption>Logo 8 · two-tone Fraunces, sun leaf for the o</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="sans" style="font-size:58px;font-weight:800;letter-spacing:-.04em;line-height:1;color:var(--ink);position:relative;display:inline-block">tcf.<span style="position:relative;z-index:1">monster</span><i style="position:absolute;left:112px;right:-4px;bottom:4px;height:18px;border-radius:999px;background:var(--sun);z-index:0"></i></span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--bg);border:3px solid var(--ink);"><span class="sans" style="font-size:34px;font-weight:800;letter-spacing:-.04em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--bg);border:2px solid var(--ink)"><span class="sans" style="font-size:12px;font-weight:800;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">9 · NUNITO · SUN STROKE</span>
+  </div>
+</div><figcaption>Logo 9 · Nunito, sun stroke under monster</figcaption></figure><style></style><figure><div class="d-root lg">
+  <div class="wm"><span class="serif" style="font-size:60px;font-weight:600;font-style:italic;letter-spacing:-.01em;line-height:1;color:var(--ink);display:inline-flex;align-items:baseline">tcf<span style="font-style:normal;color:var(--accent)">.</span>m<svg width="48" height="48" viewBox="0 0 100 100" aria-label="o" role="img" style="display:inline-block;vertical-align:-0.08em;margin:0 -0.02em"><polygon points="50,4 57,18 69,12 66,29 82,27 76,40 93,49 74,57 80,72 62,67 54,80 54,97 46,97 46,80 38,67 20,72 26,57 7,49 24,40 18,27 34,29 31,12 43,18" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linejoin="round"/></svg>nster</span></div>
+  <div class="icons">
+    <div class="app" style="background:var(--bg);border:3px solid var(--accent);"><span class="serif" style="font-size:34px;font-weight:600;font-style:italic;letter-spacing:-.01em;color:var(--ink)">tcf</span></div>
+    <div class="fav" style="background:var(--bg);border:2px solid var(--accent)"><span class="serif" style="font-size:12px;font-weight:600;font-style:italic;letter-spacing:-.05em;color:var(--ink)">tcf</span></div>
+    <span class="cap">10 · ITALIC · OUTLINE LEAF O</span>
+  </div>
+</div><figcaption>Logo 10 · Fraunces italic, outline leaf for the o</figcaption></figure></body></html>

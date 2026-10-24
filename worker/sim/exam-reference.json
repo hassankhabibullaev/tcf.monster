@@ -1,0 +1,352 @@
+{
+  "test": "TCF Canada",
+  "publisher": "France Éducation international (FEI, anciennement CIEP)",
+  "verified_at": "2026-09-06",
+  "verification_note": "Le site france-education-international.fr bloque la récupération automatisée (erreur ERR-BOT-403). Les valeurs ci-dessous ont été vérifiées dans le « Manuel du candidat TCF Canada », document officiel FEI/CIEP, hébergé par l'Alliance Française de San Francisco (centre de passation agréé), puis recoupées avec le tableau d'équivalence NCLC publié par Immigration, Réfugiés et Citoyenneté Canada (canada.ca, page mise à jour le 2026-06-22) et avec l'extrait indexé de la page officielle FEI « TCF Canada » (39 questions à choix multiple en compréhension orale et en compréhension écrite).",
+  "sources": [
+    {
+      "title": "Manuel du candidat TCF Canada — France Éducation international / CIEP",
+      "url": "https://www.afsf.com/exams/tcf/Manuel_du_candidat_TCF_Canada.pdf",
+      "kind": "document officiel FEI hébergé par un centre agréé",
+      "accessed": "2026-09-06"
+    },
+    {
+      "title": "TCF Canada — France Éducation international (page officielle)",
+      "url": "https://www.france-education-international.fr/test/tcf-canada",
+      "kind": "page officielle (extrait indexé uniquement, accès direct bloqué)",
+      "accessed": "2026-09-06"
+    },
+    {
+      "title": "IRCC — Language testing, test equivalency chart TCF Canada",
+      "url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/documents/language-requirements/language-testing.html",
+      "kind": "page officielle du gouvernement du Canada",
+      "date_modified": "2026-06-22",
+      "accessed": "2026-09-06"
+    },
+    {
+      "title": "Manuel du candidat au TCF — Version A, mars 2021 (France Éducation international, Bureau des tests)",
+      "url": "https://www.afdetroit.org/wp-content/uploads/2021/08/Manuel_du_candidat_TCF.pdf",
+      "kind": "document officiel FEI hébergé par un centre agréé (Alliance Française de Détroit)",
+      "accessed": "2026-09-06"
+    }
+  ],
+  "validity": {
+    "years": 2,
+    "text": "Le résultat donne lieu à une attestation de niveau valable 2 ans."
+  },
+  "nobody_fails": "Personne ne peut échouer au TCF.",
+  "epreuves_order": [
+    "comprehension_orale",
+    "comprehension_ecrite",
+    "expression_ecrite",
+    "expression_orale"
+  ],
+  "epreuves_order_note": "Ordre de présentation dans le manuel officiel. Les épreuves de compréhension orale, de compréhension écrite et d'expression écrite sont passées collectivement ; l'expression orale est passée individuellement avec un jury.",
+  "epreuves": {
+    "comprehension_orale": {
+      "label": "Compréhension orale",
+      "questions": 39,
+      "duration_min": 35,
+      "format": "39 questions à choix multiple, 4 choix, une seule réponse correcte, difficulté progressive ; un seul passage audio.",
+      "scale": "100–699",
+      "canadian_flavour": "Certains items marquent une appartenance à l'univers canadien francophone (accent, contexte, lexique, lieu)."
+    },
+    "comprehension_ecrite": {
+      "label": "Compréhension écrite",
+      "questions": 39,
+      "duration_min": 60,
+      "format": "39 questions à choix multiple, 4 choix, une seule réponse correcte, difficulté progressive.",
+      "scale": "100–699"
+    },
+    "expression_ecrite": {
+      "label": "Expression écrite",
+      "tasks": 3,
+      "duration_min": 60,
+      "scale": "note sur 20 avec indication de niveau CECRL (de « A1 non atteint » à C2) ; c'est cette note sur 20 qu'IRCC convertit en NCLC",
+      "taches": [
+        {
+          "n": 1,
+          "description": "Rédaction d'un message pour décrire, raconter et/ou expliquer, adressé à un ou plusieurs destinataires, dont le statut a été précisé dans la consigne.",
+          "words_min": 60,
+          "words_max": 120
+        },
+        {
+          "n": 2,
+          "description": "Rédaction d'un article, d'un courrier, d'une note, etc. à l'intention de plusieurs destinataires pour faire un compte rendu d'expérience ou un récit. Comptes rendus et récits accompagnés de commentaires, d'opinions ou d'arguments, en fonction d'un objectif (ex : revendiquer, se réconcilier, etc.).",
+          "words_min": 120,
+          "words_max": 150
+        },
+        {
+          "n": 3,
+          "description": "Rédaction d'un texte (pour un journal, un site Internet, un collègue, un supérieur hiérarchique, etc.) qui compare deux points de vue portant sur un fait de société (1re partie), exprimés dans deux documents courts et simples de 90 mots environ chacun. Le candidat prend position sur le thème traité dans les deux documents (2e partie).",
+          "words_min": 120,
+          "words_max": 180,
+          "part1_words": "40 à 60 mots",
+          "part2_words": "80 à 120 mots",
+          "documents": "deux documents courts et simples d'environ 90 mots chacun"
+        }
+      ],
+      "criteres": [
+        "communiquer un message de façon claire",
+        "donner les informations demandées",
+        "décrire, raconter, expliquer",
+        "justifier un choix, une position, une décision, etc.",
+        "enchaîner des idées et faire preuve de cohérence dans votre discours",
+        "comparer deux points de vue",
+        "exprimer votre avis et l'argumenter",
+        "utiliser un vocabulaire et des structures adaptés à la tâche demandée",
+        "être capable de faire une synthèse et de reformuler"
+      ],
+      "correction": "Grilles standardisées, correcteurs formés et habilités, double correction pour chaque copie.",
+      "word_count_rule": "Il est impératif de composer aux 3 tâches en respectant le nombre de mots minimum et maximum requis (Manuel du candidat, mars 2021)."
+    },
+    "expression_orale": {
+      "label": "Expression orale",
+      "tasks": 3,
+      "duration_min_approx": 12,
+      "jury": "Trois tâches réalisées avec un jury (examinateur).",
+      "scale": "note sur 20 avec indication de niveau CECRL (de « A1 non atteint » à C2) ; c'est cette note sur 20 qu'IRCC convertit en NCLC",
+      "taches": [
+        {
+          "n": 1,
+          "name": "Entretien dirigé sans préparation",
+          "prep_s": 0,
+          "speaking_s": 120,
+          "objective": "Le candidat fait preuve de sa capacité à échanger avec une personne qu'il ne connaît pas (l'examinateur)."
+        },
+        {
+          "n": 2,
+          "name": "Exercice en interaction avec préparation",
+          "total_s": 330,
+          "prep_s": 120,
+          "speaking_s": 210,
+          "notes_allowed": true,
+          "objective": "Le candidat fait preuve de sa capacité à obtenir des informations dans une situation de la vie quotidienne courante. Les statuts de l'interlocuteur et du candidat sont précisés dans la consigne.",
+          "example": "Chercher quelqu'un pour garder son animal domestique pendant son absence."
+        },
+        {
+          "n": 3,
+          "name": "Expression d'un point de vue sans préparation",
+          "prep_s": 0,
+          "speaking_s": 270,
+          "objective": "Le candidat fait preuve de sa capacité à parler de manière spontanée, continue et convaincante en répondant à une question choisie par l'examinateur.",
+          "example": "Si vous aviez une activité humanitaire, laquelle choisiriez-vous ? Expliquez pourquoi."
+        }
+      ],
+      "criteres": [
+        "parler de vous, de votre environnement, familial et professionnel",
+        "poser des questions adaptées à la situation de communication proposée",
+        "donner votre opinion et expliquer les avantages et inconvénients d'un projet, exprimer votre accord et votre désaccord",
+        "présenter une argumentation claire et structurée dans un style approprié au contexte",
+        "présenter de façon détaillée et structurée des sujets complexes, les développer et conclure"
+      ],
+      "correction": "Grilles standardisées, double correction pour chaque enregistrement.",
+      "face_a_face": "Épreuve individuelle en face à face avec un examinateur (Manuel du candidat, mars 2021)."
+    }
+  },
+  "scoring": {
+    "comprehension_raw": "Chaque bonne réponse est notée 1 point, chaque mauvaise réponse ou absence de réponse est notée 0 (pas de points négatifs).",
+    "comprehension_calibrated": "Le score brut est converti en note calibrée de 100 à 699 selon la difficulté des items ; les bornes entre niveaux sont invariantes (100–199 = A1 … 600–699 = C2).",
+    "expression": "Note sur 20 assortie d'une indication de niveau CECRL pour chacune des épreuves d'expression écrite et d'expression orale.",
+    "no_negative_marking": true
+  },
+  "levels_100_699": [
+    {
+      "level": "A1",
+      "label": "Élémentaire",
+      "min": 100,
+      "max": 199
+    },
+    {
+      "level": "A2",
+      "label": "Élémentaire avancé",
+      "min": 200,
+      "max": 299
+    },
+    {
+      "level": "B1",
+      "label": "Intermédiaire",
+      "min": 300,
+      "max": 399
+    },
+    {
+      "level": "B2",
+      "label": "Intermédiaire avancé",
+      "min": 400,
+      "max": 499
+    },
+    {
+      "level": "C1",
+      "label": "Supérieur",
+      "min": 500,
+      "max": 599
+    },
+    {
+      "level": "C2",
+      "label": "Supérieur avancé",
+      "min": 600,
+      "max": 699
+    }
+  ],
+  "nclc": {
+    "source": "IRCC, canada.ca, page mise à jour le 2026-06-22 (identique au tableau du Manuel du candidat)",
+    "rows": [
+      {
+        "nclc": 10,
+        "nclc_label": "10 et plus",
+        "cecrl": "C1–C2",
+        "expression_orale": [
+          16,
+          20
+        ],
+        "comprehension_orale": [
+          549,
+          699
+        ],
+        "comprehension_ecrite": [
+          549,
+          699
+        ],
+        "expression_ecrite": [
+          16,
+          20
+        ]
+      },
+      {
+        "nclc": 9,
+        "nclc_label": "9",
+        "cecrl": "C1",
+        "expression_orale": [
+          14,
+          15
+        ],
+        "comprehension_orale": [
+          523,
+          548
+        ],
+        "comprehension_ecrite": [
+          524,
+          548
+        ],
+        "expression_ecrite": [
+          14,
+          15
+        ]
+      },
+      {
+        "nclc": 8,
+        "nclc_label": "8",
+        "cecrl": "B2",
+        "expression_orale": [
+          12,
+          13
+        ],
+        "comprehension_orale": [
+          503,
+          522
+        ],
+        "comprehension_ecrite": [
+          499,
+          523
+        ],
+        "expression_ecrite": [
+          12,
+          13
+        ]
+      },
+      {
+        "nclc": 7,
+        "nclc_label": "7",
+        "cecrl": "B2",
+        "expression_orale": [
+          10,
+          11
+        ],
+        "comprehension_orale": [
+          458,
+          502
+        ],
+        "comprehension_ecrite": [
+          453,
+          498
+        ],
+        "expression_ecrite": [
+          10,
+          11
+        ]
+      },
+      {
+        "nclc": 6,
+        "nclc_label": "6",
+        "cecrl": "B1",
+        "expression_orale": [
+          7,
+          9
+        ],
+        "comprehension_orale": [
+          398,
+          457
+        ],
+        "comprehension_ecrite": [
+          406,
+          452
+        ],
+        "expression_ecrite": [
+          7,
+          9
+        ]
+      },
+      {
+        "nclc": 5,
+        "nclc_label": "5",
+        "cecrl": "B1",
+        "expression_orale": [
+          6,
+          6
+        ],
+        "comprehension_orale": [
+          369,
+          397
+        ],
+        "comprehension_ecrite": [
+          375,
+          405
+        ],
+        "expression_ecrite": [
+          6,
+          6
+        ]
+      },
+      {
+        "nclc": 4,
+        "nclc_label": "4",
+        "cecrl": "A2",
+        "expression_orale": [
+          4,
+          5
+        ],
+        "comprehension_orale": [
+          331,
+          368
+        ],
+        "comprehension_ecrite": [
+          342,
+          374
+        ],
+        "expression_ecrite": [
+          4,
+          5
+        ]
+      }
+    ]
+  },
+  "plan_assumptions_corrected": [
+    "Le plan de construction supposait une échelle 100–699 pour les quatre épreuves : les sources officielles donnent 100–699 pour la compréhension orale et la compréhension écrite, et une note sur 20 (+ niveau CECRL) pour l'expression écrite et l'expression orale. L'application affiche donc, pour l'expression, une note estimée sur 20, le niveau CECRL et le NCLC correspondant.",
+    "Durée de l'expression orale : 12 minutes environ (Tâche 1 : 2 min ; Tâche 2 : 2 min de préparation + 3 min 30 d'échange ; Tâche 3 : 4 min 30)."
+  ],
+  "tcf_sur_ordinateur": {
+    "text": "Le TCF peut être passé sur support papier ou sur support ordinateur (TCF SO). Toutes les épreuves des TCF peuvent être passées sur ordinateur sauf l'épreuve d'expression orale qui se déroule face à un examinateur. En cas de passation sur ordinateur, le surveillant installe chaque candidat à un poste informatique identifié par le code candidat.",
+    "source": "Manuel du candidat, version A, mars 2021",
+    "interface_note": "L'apparence exacte de l'écran du TCF SO n'est pas décrite dans les documents officiels consultés ; l'interface « type examen » de le simulateur est une approximation neutre (consigne, zone de saisie sans correcteur, compteur de mots, temps restant), pas une reproduction officielle."
+  }
+}

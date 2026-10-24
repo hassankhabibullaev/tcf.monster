@@ -1,0 +1,24 @@
+/* The donation card (pages/Donate.tsx): terracotta all over, the words in ink, one row of pills and the button. */
+.dcard { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-6); border-radius: var(--radius-lg); background: var(--accent); color: var(--on-accent); border: var(--border-strong) solid var(--ink); box-shadow: var(--shadow-press); }
+.dcard-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.dcard-text h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.015em; line-height: 1.15; }
+.dcard-text p { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.5; opacity: .9; }
+.dcard-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--on-accent); color: var(--accent); margin-bottom: 6px; }
+/* the note at the left of the one button, both on one line */
+.dcard-form { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
+.btn.dgo { height: 48px; padding: 0 26px; font-size: 16px; }
+.dcard-note { margin: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; opacity: .85; }
+
+/* phones: one compact row — the heart, the title with one line under it, « Donner »; the body and the note fold away */
+@media (max-width: 760px) {
+  .dcard { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; }
+  .dcard-text { flex: 1; min-width: 0; display: grid; grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; row-gap: 1px; align-items: center; }
+  .dcard-icon { grid-row: 1 / 3; width: 36px; height: 36px; margin: 0; background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink); }
+  .dcard-text h2 { font-family: var(--font-sans); font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dcard-text p { font-size: 12px; font-weight: 700; opacity: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dcard-form { flex: none; }
+  .dcard-note { display: none; }
+  .dcard-note[role="alert"] { display: inline-flex; }
+  .btn.dgo { height: 40px; padding: 0 16px; font-size: 13px; background: var(--bg); }
+  .btn.dgo .icon, .btn.dgo .spin { display: none; }
+}

@@ -1,0 +1,179 @@
+/* tcf.monster — the mock exam (docs/MOCK-EXAM.md): the shared chrome of the four stages, the break, the transition,
+   the marking, the pages, the certificate and its print block. Every value comes from tokens.css; one phone block at
+   the end. */
+
+/* ---------- the sitting ---------- */
+.mk-sitting { position: relative; display: contents; }
+.mk-trouble { position: fixed; left: 50%; bottom: 100px; z-index: 50; width: min(520px, calc(100vw - 32px)); transform: translateX(-50%); }
+
+/* ---------- the pages ---------- */
+.mk-h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; letter-spacing: -0.02em; }
+.mk-h1-row { display: flex; align-items: center; gap: 10px; }
+.mk-h1-row > .back { flex: none; }
+.mk-hero { display: flex; flex-direction: column; gap: 14px; }
+.mk-hero-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mk-hero-head h2 { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: -0.02em; }
+.mk-hero-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 15px; color: var(--ink-muted); }
+.mk-hero-line { font-weight: 700; font-size: 16px; }
+.mk-hero-acts { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mk-list .card-head { margin-bottom: 10px; }
+.mk-row .hist-main { gap: 8px; }
+.mk-row-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+
+/* the initiation page */
+.mk-init { width: min(680px, 100%); margin: 0 auto; padding: 48px 20px 120px; display: flex; flex-direction: column; gap: var(--space-5); animation: hall-in var(--duration-move) var(--ease-out); }
+.mk-init-head { display: flex; flex-direction: column; gap: 6px; }
+.mk-init-title { font-family: var(--font-display); font-weight: 700; font-size: 36px; letter-spacing: -0.02em; }
+.mk-init-brand { font-size: 18px; }
+.mk-init-block { display: flex; flex-direction: column; gap: 12px; }
+.mk-init-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mk-init-stage { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 18px; }
+.mk-init-stage-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mk-init-stage-text b { font-weight: 800; font-size: 15px; }
+.mk-init-stage-text span { font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.mk-init-min { font-weight: 700; font-size: 14px; color: var(--ink-muted); white-space: nowrap; }
+.mk-init-break { display: flex; align-items: center; gap: 8px; padding: 8px 18px 8px 36px; font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.mk-init-line { font-weight: 700; font-size: 15px; }
+.mk-init-line .icon { vertical-align: -2px; color: var(--ok); }
+.mk-foot { display: flex; align-items: center; gap: 10px; }
+.mk-foot-mid { flex: 1; }
+/* the two buttons float over the page's end; the page runs under them from the very top to the very bottom */
+.mk-init-foot { position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; height: 84px; padding: 0 20px 20px; pointer-events: none; }
+.mk-init-foot .btn { pointer-events: auto; }
+
+/* the results: the page fits the screen on a laptop — the hero, then the four tests as four cards in two rows */
+.mk-result { min-height: calc(100dvh - 92px); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: var(--space-4); }
+.mk-overall { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--space-5) var(--space-6); background: var(--sun-soft); border-color: var(--sun); }
+.mk-overall[data-none] { background: var(--surface-2); border-color: var(--line); }
+.mk-overall-main { display: flex; flex-direction: column; gap: 2px; }
+.mk-overall-label { color: var(--ink-muted); }
+.mk-overall-n { font-family: var(--font-display); font-weight: 700; font-size: 52px; letter-spacing: -0.03em; line-height: 1; }
+.mk-overall-sub { font-weight: 700; font-size: 14px; color: var(--ink-muted); }
+.mk-overall-side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; text-align: right; }
+.mk-result-meta { display: flex; flex-direction: column; gap: 2px; font-weight: 700; font-size: 14px; }
+.mk-tests { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-4); min-height: 0; }
+.mk-test { display: flex; min-height: 0; }
+.mk-test-card { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: var(--space-5); text-decoration: none; color: inherit; transition: transform var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out), border-color var(--duration-quick); }
+a.mk-test-card:hover { transform: translateY(-2px); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+.mk-test-head { display: flex; align-items: center; gap: 10px; }
+.mk-test-name { font-weight: 800; font-size: 16px; }
+.mk-test-more { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--ink-muted); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 4px; }
+a.mk-test-card:hover .mk-test-more { color: var(--ink); text-decoration-color: var(--accent); }
+.mk-cells { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 12px; }
+.mk-cells li { display: flex; flex-direction: column; gap: 6px; }
+.mk-cells .cp-cell-n { font-size: 34px; }
+.mk-cells li:first-child .cp-cell-n { font-size: 40px; }
+.mk-test-sub { margin-top: auto; font-weight: 600; }
+.mk-test:not([data-taken]) .mk-test-card { opacity: .6; }
+/* the detail of one test */
+.mk-detail-head { display: flex; flex-direction: column; gap: 12px; padding: var(--space-5); }
+.mk-detail-title { display: flex; align-items: center; gap: 12px; }
+.mk-detail-title h1 { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: -0.02em; }
+.mk-detail-head .mk-cells { max-width: 560px; }
+.mk-detail-expr .results-head .btn, .mk-detail-expr .results-exit { display: none; }
+
+/* the dashboard card */
+.mk-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: var(--space-5); border-radius: var(--radius-lg); }
+.mk-card-text { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.mk-card h2 { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; }
+.mk-card h2 .icon { color: var(--accent); }
+.mk-card-tile { display: inline-flex; }
+.mk-card-line-m { font-size: 12px; font-weight: 700; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-card-line { font-size: 14px; font-weight: 700; color: var(--ink-muted); }
+.mk-card-line b { color: var(--ink); font-weight: 800; }
+.mk-card-last { display: flex; flex-direction: column; gap: 6px; }
+
+
+
+/* ---------- phone ---------- */
+@media (max-width: 760px) {
+  .mk-page { gap: 12px; }
+  .mk-h1 { font-size: 22px; }
+  .mk-h1-row .back-word { display: none; }
+  .mk-back-where { font-size: 12px; font-weight: 700; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* the dark card: the brand line, the four tests' minutes on one line, one sentence, « Commencer › » */
+  .mk-hero.pad { gap: 12px; padding: 18px; background: var(--hall); color: var(--hall-ink); border-color: var(--hall); border-radius: 18px; box-shadow: none; }
+  .mk-hero .mai-powered { color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-hero-chips { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; }
+  .mk-hero-chips span { display: inline-flex; align-items: center; gap: 6px; }
+  .mk-hero-chips i { font-style: normal; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-hero-chips b { padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--hall-ink) 10%, transparent); font-weight: 700; }
+  .mk-hero-short { font-size: 13px; font-weight: 700; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); line-height: 1.45; }
+  .mk-hero-line { font-size: 15px; }
+  .mk-hero-acts { flex-wrap: nowrap; }
+  .mk-hero-acts .btn { flex: 1; height: 48px; gap: 6px; }
+  .mk-hero-acts .btn.primary { border-color: var(--ink); }
+  .mk-hero-acts .btn.quiet { color: var(--hall-ink); border-color: color-mix(in srgb, var(--hall-ink) 35%, transparent); }
+  /* the list: date and four small chips, the status chip, a chevron */
+  .mk-list .card-head { margin-bottom: 8px; }
+  .mk-list .card-head h2 { font-size: 16px; }
+  .mk-row .hist-main { gap: 4px; }
+  .mk-row .hist-main strong { font-size: 13px; }
+  .mk-row-chips { flex-wrap: nowrap; gap: 5px; }
+  .mk-row-chips .chip { height: 20px; padding: 0 6px; font-family: var(--font-mono); font-size: 11px; border-radius: 6px; background: var(--new); }
+  .mk-row > .chip { flex: none; }
+  /* the initiation: a vertical timeline, the breaks between the tests, the microphone as one pill, a fixed footer */
+  .mk-init { padding: 20px 16px 110px; gap: 14px; }
+  .mk-init-head { gap: 4px; }
+  .mk-init-title { font-size: 26px; }
+  .mk-init-brand { font-size: 12px; font-weight: 700; color: var(--ink-muted); }
+  .mk-init-block > .sim-caps { display: none; }
+  .mk-init-stage { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; padding: 12px 14px; }
+  .mk-init-stage .mark { display: none; }
+  .mk-init-tile { width: 38px; height: 38px; border-radius: 12px; background: var(--surface-2); color: var(--accent); display: grid; place-items: center; font-family: var(--font-mono); font-size: 12px; font-weight: 700; }
+  .mk-init-stage-text b { font-size: 14px; }
+  .mk-init-stage-text span { font-size: 12px; font-weight: 700; }
+  .mk-init-min { grid-column: 3; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+  .mk-init-break { padding: 6px 0 6px 24px; font-size: 12px; }
+  .mk-init-break::before { content: ""; width: 2px; height: 18px; background: var(--line); }
+  .mk-init-line { font-size: 13px; font-weight: 700; color: var(--ink-muted); padding: 0 4px; }
+  .mk-init-foot { height: auto; padding: 10px 16px calc(24px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 96%, transparent); }
+  .mk-init-foot .mk-foot-mid { display: none; }
+  .mk-init-foot { display: flex; gap: 10px; }
+  .mk-init-back { flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%; border-color: var(--line); background: var(--surface); }
+  .mk-init-start { flex: 1; height: 52px; font-size: 16px; gap: 6px; }
+  /* the result: a dark hero with the four tests as tiles and the certificate, then four rows */
+  .mk-result { min-height: 0; display: flex; flex-direction: column; }
+  .mk-overall, .mk-overall[data-none] { flex-direction: column; align-items: stretch; gap: 10px; padding: 18px; background: var(--hall); color: var(--hall-ink); border-color: var(--hall); border-radius: 18px; box-shadow: none; }
+  .mk-overall-label { font-size: 10px; letter-spacing: .1em; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-overall-n { font-size: 48px; color: var(--sun); }
+  .mk-overall-sub { display: none; }
+  .mk-overall-tiles { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .mk-overall-tiles li { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px; border-radius: 12px; background: color-mix(in srgb, var(--hall-ink) 8%, transparent); }
+  .mk-overall-tiles span { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-overall-tiles b { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1; }
+  .mk-overall-tiles li[data-low] b { color: var(--sun); }
+  .mk-overall-tiles small { font-size: 10px; font-weight: 700; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); white-space: nowrap; }
+  .mk-overall-side { align-items: stretch; text-align: center; gap: 6px; }
+  .mk-result-meta { font-size: 12px; }
+  .mk-result-meta .muted { color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-cert.btn { height: 44px; background: none; color: var(--sun); border-color: var(--sun); box-shadow: none; }
+  .mk-novalue { font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .mk-tests { grid-template-columns: 1fr; grid-template-rows: none; gap: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  .mk-test + .mk-test { border-top: 1px solid var(--line); }
+  .mk-test-card, .mk-test-card.card { display: grid; grid-template-columns: 24px minmax(0, 1fr) 18px; column-gap: 12px; row-gap: 0; align-items: center; padding: 12px 14px; border: 0; border-radius: 0; box-shadow: none; }
+  a.mk-test-card:hover { transform: none; box-shadow: none; }
+  .mk-test-head { grid-column: 1; }
+  .mk-test-head .mark, .mk-test-name, .mk-test-more { display: none; }
+  .mk-test-code { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent); }
+  .mk-cells, .mk-test-sub { display: none; }
+  .mk-test:not([data-taken]) .mk-test-sub { display: block; grid-column: 2; font-size: 13px; }
+  .mk-test-line { grid-column: 2; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .mk-test-line b { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mk-test-line small { font-size: 11px; font-weight: 700; color: var(--ink-muted); }
+  .mk-test-line span { font-size: 12px; font-weight: 700; color: var(--ink-muted); }
+  .mk-test-chev { grid-column: 3; color: var(--ink-muted); }
+  .mk-test:not([data-taken]) .mk-test-card { opacity: .6; }
+  /* the dashboard's fifth row: a dark tile, the name, « 2 passés · le dernier NCLC 3 », a chevron; the whole row opens */
+  .mk-card { position: relative; flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 16px; }
+  .mk-card-text { flex: 1; min-width: 0; display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: center; }
+  .mk-card h2 { font-size: 14px; gap: 12px; display: contents; }
+  .mk-card-tile { grid-row: 1 / 3; width: 38px; height: 38px; border-radius: 12px; background: var(--ink); color: var(--sun); display: grid; place-items: center; }
+  .mk-card h2 .icon { color: var(--sun); }
+  .mk-card-line, .mk-card-last, .mk-card-line.muted { display: none; }
+  .mk-card-line-m { display: block; }
+  .mk-card-text > .mk-card-line.muted:only-of-type { display: block; font-size: 12px; }
+  .mk-card-open { position: absolute; inset: 0; opacity: 0; height: auto; border-radius: 16px; }
+  .mk-card-chev { color: var(--ink-muted); }
+  .mk-trouble { bottom: 150px; }
+}

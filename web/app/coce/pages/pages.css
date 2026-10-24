@@ -1,0 +1,253 @@
+/* tcf.monster — the CO / CE pages: section (Examen · Entraînement), exam hero, result, running band.
+   Every value comes from tokens.css; the laptop first, one tablet block, one phone block at the end. */
+
+/* ---------- Entraînement ---------- */
+.cp-levels { display: flex; flex-direction: column; gap: 10px; }
+.cp-level { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 2fr) auto; align-items: center; gap: 20px; padding: 14px 20px; }
+.cp-level-name { font-family: var(--font-display); font-weight: 700; font-size: 26px; letter-spacing: -0.02em; line-height: 1; }
+.cp-level-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cp-level-meta strong { font-weight: 800; font-size: 15px; }
+.cp-bar { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cp-bar .cbar { height: 12px; }
+.cp-counts { display: flex; justify-content: space-between; gap: 14px; font-weight: 700; }
+.cp-counts > span { display: inline-flex; align-items: center; gap: 5px; }
+.cp-amber { color: var(--amber); font-weight: 700; }
+.cp-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--new); flex: none; }
+.cp-dot.ok { background: var(--ok); }
+.cp-dot.amber { background: var(--amber); }
+.cp-dot.bad { background: var(--bad); }
+.cp-dot.new { background: var(--new); box-shadow: inset 0 0 0 1px var(--line); }
+.cp-open { justify-self: end; }
+
+/* the search: a 320 px field at the right, above the levels; the hits as plain rows under it */
+.cp-search-block { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.cp-search { width: 320px; max-width: 100%; min-width: 0; }
+.cp-search-none { font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.cp-hits { width: 100%; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); overflow: hidden; }
+.cp-hits li + li { border-top: 1px solid var(--line); }
+.cp-hit { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: baseline; gap: 12px; padding: 9px 14px; text-decoration: none; color: var(--ink); font-size: 14px; line-height: 1.4; transition: background var(--duration-quick); }
+.cp-hit:hover { background: var(--surface-2); }
+.cp-hit-where { font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+.cp-hit-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; font-weight: 600; color: var(--ink-muted); }
+.cp-legend > span { display: inline-flex; align-items: center; gap: 7px; }
+
+/* ---------- Examen: the 40 tiles, each with its latest score ---------- */
+.cp-exams { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.cp-exam { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-height: 156px; padding: 18px 14px 12px; text-decoration: none; color: var(--ink); transition: transform var(--duration-quick) var(--ease-out), box-shadow var(--duration-quick) var(--ease-out), border-color var(--duration-quick); }
+.cp-exam:hover { transform: translateY(-2px); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+.cp-exam:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+/* a finished exam wears its NCLC band on top: green from 7, amber 5–6, muted under */
+.cp-exam::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 5px; background: transparent; }
+.cp-exam[data-band="ok"]::before { background: var(--ok); }
+.cp-exam[data-band="amber"]::before { background: var(--amber); }
+.cp-exam[data-band="low"]::before { background: var(--ink-muted); opacity: .4; }
+.cp-exam[data-state="new"] { border-style: dashed; box-shadow: none; }
+.cp-exam[data-state="new"] .cp-exam-no { color: var(--ink-muted); }
+.cp-exam[data-state="running"] { border-color: var(--ink); border-width: var(--border-strong); background: var(--sun-soft); }
+.cp-exam-no { font-family: var(--font-display); font-weight: 700; font-size: 42px; line-height: .9; letter-spacing: -0.03em; }
+.cp-exam-score { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 24px; margin-top: auto; }
+.cp-exam-n { font-weight: 800; font-size: 18px; line-height: 1; }
+.cp-exam-of { font-size: 12px; font-weight: 700; color: var(--ink-muted); }
+/* a new exam keeps the shape of a finished one: « 0 /699 » and « 0 essais », in muted type */
+.cp-exam-score[data-empty] .cp-exam-n { color: var(--ink-muted); opacity: .6; }
+.cp-exam-score[data-empty] .cp-exam-of { opacity: .6; }
+.cp-exam-count { line-height: 1.2; }
+
+/* ---------- the exam page: the way back (BackLink), a hero, then the past attempts ---------- */
+.cp-page > .back { align-self: flex-start; }
+.cp-hero { display: flex; flex-direction: column; gap: 24px; padding: 28px 32px 32px; }
+.cp-hero-head { display: flex; align-items: center; gap: 18px; }
+.cp-hero-head .mark.big { color: var(--accent); }
+.cp-hero-text { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cp-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; color: var(--ink-muted); }
+/* each pick says in its own lines what will happen; one line under both for the clock */
+.cp-picks .pick { padding: 18px 20px; gap: 4px; }
+.cp-picks .pick b { font-size: 17px; margin-bottom: 4px; }
+.cp-picks .pick span { font-size: 14px; line-height: 1.45; }
+.cp-hero-line { font-size: 14px; line-height: 1.5; font-weight: 600; color: var(--ink-muted); margin-top: -8px; }
+.cp-hero-start { align-self: flex-start; height: 56px; padding: 0 40px; font-size: 17px; }
+/* while something runs, anywhere: the name, the time left, Reprendre and Abandonner */
+.cp-hero-running { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.cp-hero-running-text { display: flex; flex-direction: column; gap: 4px; font-size: 17px; }
+.cp-hero-running-text .num { font-size: 15px; font-weight: 700; color: var(--ink-muted); }
+.cp-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.cp-past { display: flex; flex-direction: column; gap: 12px; }
+.cp-past h2 { font-weight: 800; font-size: 17px; }
+.cp-attempts { display: flex; flex-direction: column; gap: 10px; }
+.cp-attempt { display: grid; grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1fr) minmax(0, 1.4fr) auto auto; align-items: center; gap: 16px; padding: 12px 18px; }
+.cp-attempt-date { font-weight: 700; }
+.cp-attempt-score { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1; }
+.cp-attempt-score .muted { font-family: var(--font-sans); font-weight: 600; }
+.cp-attempt-nclc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- the result: two columns at the top — four cells at the left, the level card at the right —, then the cards ---------- */
+.cp-result-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.cp-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+/* an old row without the levels: the four cells take the whole width */
+.cp-result-top:has(> .cp-cells:only-child) { grid-template-columns: minmax(0, 1fr); }
+.cp-result-top > .cp-cells:only-child { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cp-cell { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 16px 20px; min-height: 104px; }
+.cp-cell-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+.cp-cell-n { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: .95; letter-spacing: -0.03em; white-space: nowrap; }
+.cp-cell-of { font-size: 16px; color: var(--ink-muted); }
+.cp-result-meta { font-weight: 600; margin-top: -6px; }
+.cp-bylevel.pad { display: flex; flex-direction: column; justify-content: center; padding: 16px 22px; }
+.cp-bylevel .card-head { margin-bottom: 10px; }
+.cp-bylevel h2 { font-size: 15px; }
+.cp-bylevel ul { display: flex; flex-direction: column; gap: 6px; }
+.cp-bylevel li { display: grid; grid-template-columns: 36px minmax(0, 1fr) 64px; align-items: center; gap: 12px; height: 24px; }
+.cp-bylevel .cbar { height: 10px; }
+.cp-lv { font-family: var(--font-mono); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.cp-lv-n { text-align: right; font-weight: 700; }
+.cp-bylevel .weak .cp-lv, .cp-bylevel .weak .cp-lv-n { color: var(--bad); }
+.cp-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+/* the review: one card per question in exam order, the room's own pieces inside (options, feedback, player, transcript, paper) */
+.cp-review { display: flex; flex-direction: column; gap: 12px; padding: 0; list-style: none; } /* the list's own indent would push the cards right of the ones above */
+/* the card keeps the common 1 px border, so its edges line up with the cards above; the tone is a strip drawn inside */
+.cp-q { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 18px 20px 20px; }
+.cp-q::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: transparent; }
+.cp-q[data-tone="ok"]::before { background: var(--ok); }
+.cp-q[data-tone="bad"]::before { background: var(--bad); }
+.cp-q-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.cp-q-title { display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cp-q-head h3 { font-weight: 800; font-size: 15px; }
+/* what the question is worth: green once earned, muted when not */
+.cp-q-points { font-size: 12px; font-weight: 800; color: var(--ink-muted); }
+.cp-q-points[data-earned="true"] { color: var(--ok); }
+.cp-q-answers { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.cp-q-media { display: flex; flex-direction: column; gap: 10px; }
+.cp-q .cr-player { padding: 0; }
+.cp-q .cr-stem p { font-size: 17px; }
+.cp-q .cr-picture { max-width: 440px; }
+/* a fold: the transcript or the text, closed by default, one line to open it */
+.cp-fold { border: 1px solid var(--line); border-radius: var(--radius-md); }
+.cp-fold summary { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 800; font-size: 14px; cursor: pointer; list-style: none; }
+.cp-fold summary::-webkit-details-marker { display: none; }
+.cp-fold summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform var(--duration-quick); margin-right: 2px; }
+.cp-fold[open] summary::before { transform: rotate(45deg); }
+.cp-fold-body { display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
+
+/* ---------- the running card: floats bottom right, never wider than the screen ---------- */
+.cp-float { position: fixed; right: 20px; bottom: 20px; z-index: 40; width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; background: var(--surface); color: var(--ink); border: var(--border-strong) solid var(--ink); border-radius: var(--radius-md); box-shadow: var(--shadow-float); font-size: 14px; line-height: 1.4; animation: rise var(--duration-move) var(--ease-out); }
+.cp-float-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cp-float-text strong { font-weight: 800; }
+.cp-float-text .num { font-weight: 700; color: var(--ink-muted); }
+.cp-float-actions { display: flex; gap: 8px; align-items: center; }
+.cp-float-actions .btn { flex: 1; }
+
+/* ---------- skeletons ---------- */
+.cp-skel-row { height: 72px; }
+.cp-skel-card { height: 156px; }
+.cp-skel-chip { display: inline-block; width: 96px; height: 24px; border-radius: var(--radius-pill); }
+.cp-skel-score { width: 240px; height: 56px; }
+.cp-hero-text .display { font-size: 34px; }
+
+/* ---------- tablet ---------- */
+@media (max-width: 1080px) {
+  .cp-exams { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cp-level { grid-template-columns: 56px minmax(0, 1fr) auto; grid-template-areas: "name meta open" "bar bar bar"; row-gap: 12px; }
+  .cp-level-name { grid-area: name; }
+  .cp-level-meta { grid-area: meta; }
+  .cp-bar { grid-area: bar; }
+  .cp-open { grid-area: open; }
+}
+
+/* ---------- phone ---------- */
+@media (max-width: 760px) {
+  /* the search folds behind the round button in the title row; the field shows under the pill once pressed */
+  .cp-search-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: var(--border-strong) solid var(--ink); background: var(--surface); color: var(--ink); cursor: pointer; padding: 0; }
+  .cp-search-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .cp-search-block { display: none; }
+  .cp-page[data-search] .cp-search-block { display: flex; }
+  .cp-search { width: 100%; }
+  .cp-hit { grid-template-columns: 1fr; gap: 2px; }
+  .cp-hit-text { white-space: normal; }
+  /* one row a level: the level, « 38 / 172 vues · 15 pts » over its colour bar, a round › button */
+  .cp-levels { gap: 8px; }
+  .cp-level { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "name meta open" "name bar open"; gap: 6px 12px; padding: 12px 14px; }
+  .cp-level-name { grid-area: name; font-size: 24px; }
+  .cp-level-meta { grid-area: meta; gap: 0; }
+  .cp-level-m { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; color: var(--ink-muted); white-space: nowrap; }
+  .cp-level > .cp-bar { grid-area: bar; }
+  .cp-level .cbar { height: 8px; }
+  .cp-counts { display: none; }
+  .cp-open { grid-area: open; width: 40px; height: 40px; padding: 0; border-radius: 50%; box-shadow: none; }
+  .cp-legend { gap: 6px 14px; font-size: 12px; }
+  /* the 40 exams: three to a row from 360 px, two under that; the number, the score, the NCLC chip, the band on top */
+  .cp-exams { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cp-exam { min-height: 0; gap: 6px; padding: 12px 10px 8px; border-radius: 14px; }
+  .cp-exam-no { font-size: 28px; line-height: 1; }
+  .cp-exam > .chip { display: none; }
+  .cp-exam[data-state="new"] > .chip, .cp-exam[data-state="running"] > .chip { display: inline-flex; order: 3; height: 20px; padding: 0 7px; font-size: 10px; }
+  .cp-exam-score { margin-top: 0; gap: 4px; min-height: 0; }
+  .cp-exam-n { font-size: 13px; }
+  .cp-exam-of { font-size: 10px; }
+  .cp-exam-score .chip { height: 20px; padding: 0 7px; font-size: 10px; flex-basis: 100%; width: fit-content; }
+  .cp-exam-count { display: none; }
+  /* one exam: the big number beside « Examen CO » and its line, the modes as one pill, the lines as a checklist */
+  .cp-back-row { display: flex; align-items: center; gap: 10px; }
+  .cp-back-row .back-word { display: none; }
+  .cp-back-where { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); }
+  .cp-hero { padding: 16px; gap: 14px; }
+  .cp-hero-head { align-items: center; gap: 12px; }
+  .cp-hero-head .mark { display: none; }
+  .cp-hero-no { font-family: var(--font-display); font-weight: 700; font-size: 44px; line-height: 1; letter-spacing: -0.03em; }
+  .cp-hero-text { gap: 4px; }
+  .cp-hero-text .display { font-size: 20px; }
+  .cp-meta { font-size: 13px; gap: 6px; }
+  .cp-picks { display: flex; padding: 3px; border: var(--border-strong) solid var(--ink); border-radius: var(--radius-pill); background: var(--surface); gap: 0; }
+  .cp-picks .pick { flex: 1; min-width: 0; align-items: center; justify-content: center; padding: 10px 0; border: 0; border-radius: var(--radius-pill); box-shadow: none; background: none; }
+  .cp-picks .pick b { font-size: 14px; margin: 0; color: var(--ink-muted); white-space: nowrap; }
+  .cp-picks .pick[aria-pressed="true"] { background: var(--sun-soft); }
+  .cp-picks .pick[aria-pressed="true"] b { color: var(--ink); }
+  .cp-mode-lines { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0 0 0 4px; list-style: none; font-size: 14px; font-weight: 600; color: var(--ink-muted); }
+  .cp-mode-lines li { display: flex; align-items: flex-start; gap: 8px; }
+  .cp-mode-lines li .icon { flex: none; margin-top: 3px; color: var(--ok); stroke-width: 3; }
+  .cp-mode-lines li.cp-mode-clock .icon { color: var(--ink-muted); stroke-width: 2; }
+  .cp-hero-start { width: 100%; align-self: stretch; height: 54px; font-size: 16px; }
+  .cp-hero-actions { width: 100%; }
+  .cp-hero-actions .btn { flex: 1; }
+  /* the past attempts as compact rows: the date and the mode, the score under them, a round review button, ✕ */
+  .cp-past { gap: 8px; }
+  .cp-past h2 { font-size: 14px; }
+  .cp-attempts { gap: 8px; }
+  .cp-attempt { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "date open del" "score open del"; gap: 2px 10px; padding: 10px 14px; }
+  .cp-attempt-date { grid-area: date; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .cp-attempt-mode { grid-area: date; justify-self: end; align-self: start; }
+  .cp-attempt-mode .chip { height: 18px; padding: 0 6px; font-size: 10px; }
+  .cp-attempt-score { grid-area: score; font-size: 20px; }
+  .cp-attempt-nclc { grid-area: score; justify-self: end; align-self: end; gap: 6px; }
+  .cp-attempt-nclc .chip { height: 18px; padding: 0 6px; font-size: 10px; }
+  .cp-attempt-open { grid-area: open; width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: none; }
+  .cp-attempt-del { grid-area: del; }
+  /* the result: a dark hero, the level card, the chips, compact question cards */
+  .cp-q { padding: 12px 14px 14px; gap: 10px; }
+  .cp-q-head h3 { font-size: 13px; }
+  .cp-fold summary { padding: 10px 12px; }
+  .cp-fold-body { padding: 0 12px 12px; }
+  .cp-result-top { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .cp-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 18px; border-radius: 18px; background: var(--hall); color: var(--hall-ink); }
+  .cp-result-top > .cp-cells:only-child { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cp-cell { min-height: 0; padding: 0; gap: 4px; background: none; border: 0; box-shadow: none; border-radius: 0; justify-content: flex-start; }
+  .cp-cell:first-child { grid-column: 1 / -1; padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--hall-ink) 15%, transparent); }
+  .cp-cell-label { font-size: 10px; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .cp-cell-n { font-size: 26px; }
+  .cp-cell:first-child .cp-cell-n { font-size: 56px; }
+  .cp-cell-of { font-size: 12px; color: color-mix(in srgb, var(--hall-ink) 70%, transparent); }
+  .cp-cell:first-child .cp-cell-of { font-size: 18px; }
+  .cp-cell:nth-child(3) { align-items: center; }
+  .cp-cell:nth-child(4) { align-items: flex-end; }
+  .cp-cell:nth-child(3) .cp-cell-n, .cp-cell:nth-child(4) .cp-cell-n { color: var(--sun); }
+  .cp-bylevel.pad { padding: 12px 16px; }
+  .cp-bylevel .card-head { display: none; }
+  .cp-bylevel li { grid-template-columns: 30px minmax(0, 1fr) 44px; height: 22px; }
+  .cp-bylevel .cbar { height: 8px; }
+  .cp-result-meta { font-size: 12px; }
+  .cp-actions .btn { flex: 0 1 auto; height: 40px; font-size: 14px; }
+  .cp-filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .cp-filters .chip-btn { flex: none; height: 32px; padding: 0 12px; font-size: 12px; border-width: 1.5px; border-color: var(--line); }
+  .cp-filters .chip-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .cp-filters .chip-btn[data-tone="bad"] { color: var(--bad); }
+  .cp-float { left: 16px; right: 16px; width: auto; bottom: calc(76px + env(safe-area-inset-bottom)); }
+}

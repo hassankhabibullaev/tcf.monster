@@ -1,0 +1,38 @@
+// The one Worker: tcf.monster (the public site and the application) and admin.tcf.monster; app.tcf.monster and
+// www.tcf.monster answer a redirect to tcf.monster. One D1 database, one R2 bucket.
+{
+  "name": "tcf-monster-app",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["global_fetch_strictly_public", "nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none",
+    "run_worker_first": ["/*", "!/assets/*", "!/media/*", "!/fonts/*", "!/worklets/*", "!/data/*", "!/site/assets/*"]
+  },
+  "routes": [
+    { "pattern": "tcf.monster", "custom_domain": true },
+    { "pattern": "www.tcf.monster", "custom_domain": true },
+    { "pattern": "app.tcf.monster", "custom_domain": true },
+    { "pattern": "admin.tcf.monster", "custom_domain": true }
+  ],
+  "workers_dev": false,
+  "d1_databases": [{ "binding": "DB", "database_name": "tcf-monster", "database_id": "7a0d38dc-1b69-4c33-a50b-08b1a102afa5", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "tcf-monster-files" }],
+  // one schedule only: the free plan allows 5 for the whole account, shared with the other apps
+  "triggers": { "crons": ["0 22 * * *"] },
+  "observability": { "enabled": true },
+  "vars": {
+    "APP_TZ": "Asia/Tashkent",
+    "OWNER_EMAIL": "owner@example.com",
+    // "0": only a signed-in session of OWNER_EMAIL opens the admin (sign in on tcf.monster)
+    "ADMIN_OPEN": "0",
+    // "1": anyone may create an account (opened 2026-10-19); "0" would let in only OWNER_EMAIL and TESTERS
+    "APP_OPEN": "1",
+    "TESTERS": "",
+    "MAIL_FROM": "tcf.monster <bonjour@tcf.monster>",
+    "TURNSTILE_SITEKEY": "0x4AAAAAAFgYw3EsVNkcVzcd"
+  }
+}

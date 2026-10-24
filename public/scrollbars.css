@@ -1,0 +1,11 @@
+/* The browser never draws a scrollbar (the owner's rule, 2026-10-19): nothing shifts when one would come or go.
+   Our own thumb is drawn by /scrollbars.js over whatever scrolls. One file for the app, the admin and the site. */
+html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }
+/* one colour, one shape (a 6 px pill that never changes size), from the design tokens; hover and drag only deepen it */
+.sb-thumb { position: fixed; top: 0; left: 0; z-index: 2147483000; border-radius: 999px; background: var(--sb-thumb, rgba(255, 107, 74, .6)); opacity: 0; pointer-events: none; transition: opacity .3s ease, background .15s ease; touch-action: none; }
+.sb-y { width: var(--sb-size, 6px); }
+.sb-x { height: var(--sb-size, 6px); }
+.sb-thumb[data-show][data-on] { opacity: 1; pointer-events: auto; cursor: default; }
+.sb-thumb:hover, .sb-thumb[data-drag] { background: var(--sb-thumb-active, #ff6b4a); }
+@media (prefers-reduced-motion: reduce) { .sb-thumb { transition: none; } }

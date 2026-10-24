@@ -1,0 +1,29 @@
+/* ---------- the one date picker (Calendar.tsx): the sheet's look, the app's buttons ---------- */
+.cal-anchor { position: relative; display: inline-flex; align-items: baseline; vertical-align: middle; }
+.cal-pop { position: absolute; top: calc(100% + 10px); left: 0; z-index: 40; animation: rise var(--duration-move) var(--ease-out); }
+.cal-pop[data-align="end"] { left: auto; right: 0; }
+.cal { width: 316px; padding: 14px; border: var(--border-strong) solid var(--ink); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); box-shadow: var(--shadow-float);
+  font-family: var(--font-sans); font-size: 15px; font-weight: 700; line-height: 1.2; letter-spacing: 0; text-align: left; }
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cal-title { flex: 1; text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.cal-title::first-letter { text-transform: uppercase; }
+.cal-nav { display: grid; place-items: center; width: 36px; height: 36px; border: var(--border-strong) solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; transition: border-color var(--duration-quick), background var(--duration-quick); }
+.cal-nav:hover:not(:disabled) { border-color: var(--ink); }
+.cal-nav:disabled { opacity: .35; cursor: default; }
+.cal-days, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-days span { height: 28px; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--ink-muted); }
+.cal-day { height: 40px; border: var(--border-strong) solid transparent; border-radius: 50%; background: none; color: var(--ink); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; transition: background var(--duration-quick), border-color var(--duration-quick); }
+.cal-day:hover:not(:disabled) { background: var(--sun-soft); }
+.cal-day[aria-current="date"] { border-color: var(--line); }
+.cal-day[aria-pressed="true"] { background: var(--accent); border-color: var(--ink); color: var(--on-accent); }
+.cal-day:disabled { color: var(--ink-muted); opacity: .4; cursor: default; }
+.cal-day:focus-visible, .cal-nav:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.cal-foot { display: flex; justify-content: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cal-foot .btn[aria-pressed="true"] { background: var(--sun-soft); }
+@media (max-width: 760px) {
+  /* on a phone the calendar sits at the bottom of the screen, full width, whatever opened it */
+  .cal-anchor { position: static; }
+  .cal-pop, .cal-pop[data-align="end"] { position: fixed; top: auto; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .cal { width: 100%; }
+  .cal-day { height: 44px; }
+}
