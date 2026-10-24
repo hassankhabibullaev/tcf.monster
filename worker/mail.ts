@@ -4,6 +4,7 @@
 // Codes always go; the other mails (welcome, exam) stop at newsCap() sent today, so codes keep room, and wait for the
 // next night.
 import { type Env, nowIso } from "./util.ts";
+import { pepper } from "./auth.ts";
 import { type MailId, type Lang, renderMail, STOPPABLE, SITE } from "./mails.ts";
 
 export type MailKind = "signup" | "signin" | "reset" | "delete" | "deleted" | "welcome" | "luck" | "after" | "test";
@@ -53,7 +54,7 @@ async function resendToday(env: Env) {
   return Number(r?.n ?? 0);
 }
 
-export async function sendMail(env: Env, to: string, kind: MailKind, subject: string, html: string, text: string, headers?: Record<string, string>) {
+export async function sendMail(env: Env, to: string, kind: MailKind, subject: string, html: string, text: string, headers?: Record<string, string>, net: string | null = null) {
   if (!mailReady(env)) return { ok: false, detail: "no mail provider or sender set" };
   let out: Out = { ok: false, detail: "Resend not set", full: true };
   if (env.RESEND_API_KEY && (!env.BREVO_API_KEY || (await resendToday(env)) < RESEND_DAY)) out = await viaResend(env, to, subject, html, text, headers);
@@ -63,7 +64,7 @@ export async function sendMail(env: Env, to: string, kind: MailKind, subject: st
     out = await viaBrevo(env, to, subject, html, text, headers);
     if (!out.ok) out.detail = `${first.slice(0, 80)} · ${out.detail}`;
   }
-  await env.DB.prepare("INSERT INTO mail (at, email, kind, ok, detail) VALUES (?, ?, ?, ?, ?)").bind(nowIso(), to, kind, out.ok ? 1 : 0, out.detail || null).run();
+  await env.DB.prepare("INSERT INTO mail (at, email, kind, ok, detail, ip) VALUES (?, ?, ?, ?, ?, ?)").bind(nowIso(), to, kind, out.ok ? 1 : 0, out.detail || null, net).run();
   return { ok: out.ok, detail: out.detail };
 }
 
@@ -76,7 +77,7 @@ export async function sentToday(env: Env) {
 // ---- the stop link: signed with the pepper, so nobody can stop someone else's mails ----
 const enc = new TextEncoder();
 export async function stopToken(env: Env, userId: string) {
-  const k = await crypto.subtle.importKey("raw", enc.encode(env.PASSWORD_PEPPER || "dev-pepper-not-for-production"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const k = await crypto.subtle.importKey("raw", enc.encode(pepper(env)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = await crypto.subtle.sign("HMAC", k, enc.encode(`stop-mails:${userId}`));
   return [...new Uint8Array(sig)].slice(0, 16).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
@@ -87,13 +88,13 @@ export async function stopUrl(env: Env, userId: string) {
 const KIND: Record<MailId, MailKind> = { signup: "signup", signin: "signin", password: "reset", delete: "delete", deleted: "deleted", welcome: "welcome", luck: "luck", after: "after" };
 
 /** one of the designed mails to one person; the stoppable ones carry the stop link and the one-click headers */
-export async function sendDesigned(env: Env, to: string, id: MailId, who: { lang: string; userId?: string; name?: string | null; code?: string; examDate?: string; examToday?: boolean }) {
+export async function sendDesigned(env: Env, to: string, id: MailId, who: { lang: string; userId?: string; name?: string | null; code?: string; examDate?: string; examToday?: boolean; net?: string | null }) {
   const lang: Lang = who.lang === "en" ? "en" : "fr";
   const stop = STOPPABLE.includes(id) && who.userId ? await stopUrl(env, who.userId) : undefined;
   const m = renderMail(id, { lang, name: who.name, code: who.code, examDate: who.examDate, examToday: who.examToday, stopUrl: stop });
-  if (!mailReady(env) && env.MAIL_LOG === "1") { console.log(`[mail] ${to} ${id}${who.code ? " code " + who.code : ""}`); return { ok: true, detail: "logged" }; }
+  if (!mailReady(env) && env.MAIL_LOG === "1" && env.LOCAL_DEV === "1") { console.log(`[mail] ${to} ${id}${who.code ? " code " + who.code : ""}`); return { ok: true, detail: "logged" }; }
   const headers = stop ? { "List-Unsubscribe": `<${stop}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined;
-  return sendMail(env, to, KIND[id], m.subject, m.html, m.text, headers);
+  return sendMail(env, to, KIND[id], m.subject, m.html, m.text, headers, who.net ?? null);
 }
 
 /** settings.mails === false: the person stopped the welcome and exam mails */

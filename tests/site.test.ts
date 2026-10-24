@@ -67,7 +67,7 @@ describe("https only", () => {
     const post = await worker.fetch(new Request("http://tcf.monster/api/auth/login", { method: "POST", body: "{}" }), env);
     expect(post.status).toBe(308);
     const api = await worker.fetch(new Request("https://tcf.monster/api/me"), env);
-    expect(api.headers.get("strict-transport-security")).toBe("max-age=31536000");
+    expect(api.headers.get("strict-transport-security")).toBe("max-age=63072000; includeSubDomains");
     const local = await worker.fetch(new Request("http://localhost:3204/api/me"), env);
     expect(local.status).toBe(401);
   });

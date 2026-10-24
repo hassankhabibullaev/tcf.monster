@@ -21,7 +21,21 @@ the CSP forbids them; React style props are fine).
 ## 1. Data files (Content → everyone)
 
 Built by `python3 scripts/bank-export.py` from `~/Developer/tcf.monster-data/final/{questions,placements}.json`
-into `public/data/` (git-ignored, served as static files: free, no Worker time). Never committed.
+into `public/data/` (git-ignored). Never committed. The bank's guard (`worker/coce/guard.ts`):
+- `/data/*` goes through the Worker, to signed-in people only, kept an hour by the browser. Each file a person opens
+  is noted once a day (`bank_reads`). Past 30 files a minute (`BANK_PACE`) the answer is `429 { error: "human",
+  turnstile }`: `web/app/coce/bank.ts` shows Turnstile (action "bank"), sends the token as `x-turnstile`, and a pass
+  holds 45 minutes (`users.human_until`). Blocked — signed out everywhere, sign-in answers « blocked » — past 120 files
+  a minute (`BANK_LIMIT`), 5 failed checks in a row, 40 different files in a day or 80 in seven days, until the owner
+  unblocks on the admin's person page. The owner is never paced or blocked.
+- `/media/*` are plain files Cloudflare serves without the Worker (free): `scripts/copy-media.mjs` copies them into
+  `dist/media/` under names made with a secret kept on this Mac (`~/Developer/tcf.monster-data/media-secret.txt`; the
+  same secret, the same names at every build) and rewrites the names inside `dist/data/`. The export's names below
+  were public once: they are never files, a request for one reaches the Worker and is a 404. On this Mac
+  (`npm run dev`, no copy-media) the Worker reads them from R2's local folder.
+- `key-co|ce.json` (the answer keys, the mock exam's paper builder) leave `dist/` at the build and live in R2 under
+  `private/` (`scripts/upload-keys.mjs`, inside `npm run deploy`). `summary.json` is the admin's. Any other spelling of
+  `/data` or `/media` (encoded, doubled slashes, capitals) is a 404.
 
 - `public/data/bank.json` — the index:
   ```json
@@ -58,9 +72,8 @@ into `public/data/` (git-ignored, served as static files: free, no Worker time).
 - Media keys: `media/<section>/<basename>` (`media/co/69205b60b0f61d26db49.mp3`, `media/ce/2c63def4ef06bb3f0092.webp`);
   the export writes `~/Developer/tcf.monster-data/media-manifest.json` (`key → local path`) and the uploader
   reads it (`wrangler r2 object put tcf-monster-files/<key> --file <path> --remote`, 8 in parallel, skips keys
-  already listed, resumable). `worker/media.ts` exports `handleMedia(req, env, key)`: R2 get with **Range**
-  support (audio seeking), `cache-control: public, max-age=31536000, immutable`, correct content type, 404 plain.
-  Keys are immutable: a changed file gets a new name.
+  already listed, resumable; R2 keeps them as the backup). In the bank files the build replaces each with its hidden
+  name (above). Keys are immutable: a changed file gets a new name.
 
 ## 2. Progress (Server ↔ Rooms ↔ Pages)
 
@@ -368,6 +381,7 @@ All inside `web/app/coce/pages/`, exported from `web/app/coce/pages/index.ts`:
 
 ## 7. Numbers to keep in mind
 
-Free plan: 100,000 Worker requests a day (static files and cached media are not counted), 100,000 row writes.
-A practice session ≈ 1 progress read + 3–6 syncs; an exam ≈ 1 + 39 small PATCHes + 1 finish; a CO recording is one
-`/media` request the first time, then the browser cache. One person's day stays under 200 requests.
+Free plan: 100,000 Worker requests a day (static files, the recordings included, are not counted), 100,000 row writes.
+A practice session ≈ 1 progress read + 3–6 syncs; an exam ≈ 1 + 39 small PATCHes + 1 finish; the bank's files are
+about 13 requests the first time a section opens, then an hour of browser cache. One person's day stays under 200
+requests.

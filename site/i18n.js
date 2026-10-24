@@ -35,7 +35,7 @@ window.EN = {
   ai1: "In speaking, an examiner who listens and answers you, from Tâche 1 to Tâche 3.",
   ai2: "In writing, every mistake underlined, corrected and explained, in your own text.",
   ai3: "A mark out of 20 and an NCLC level, criterion by criterion.",
-  aiKey: "With your own Gemini key, free from Google: two minutes to create, encrypted on your account.",
+  aiKey: "With your own Gemini key, free from Google: two minutes to create, kept in your browser.",
   why1: "after « veux », the infinitive", why2: "agrees with « vidéos »",
   crit1: "Task", crit2: "Coherence", crit3: "Vocabulary", crit4: "Grammar",
   freeKicker: "Free, really",
@@ -97,7 +97,7 @@ Object.assign(window.EN, {
 "legP7": "Where",
 "legP8": "At Cloudflare (database and files); e-mails go out through Resend or Brevo; donations go through Stripe or Ko-fi, which send us no card data; the AI is Google Gemini, called by your browser with your key.",
 "legP9": "Your rights",
-"legP10": "From your settings, you can delete everything. Deletion is immediate and complete, on our servers and on the device where you do it.",
+"legP10": "From your settings, you can delete everything. Deletion is immediate on our servers and on the device where you do it; the backup copies that still hold your account disappear on their own within 7 days, and Cloudflare's technical logs (IP address, used against bots and abuse) within a few days.",
 "legP11": "Cookies",
 "legP12": "A single cookie, to stay signed in. No tracking cookies: that is why there is no banner.",
 "legP13": "A question: <a href=\"mailto:bonjour@tcf.monster\">bonjour@tcf.monster</a>."

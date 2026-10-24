@@ -18,6 +18,9 @@ type Step = "email" | "password" | "newPassword" | "code" | "resetPassword";
 /** what the code step is for: signing in by code, creating the account, or a forgotten password */
 type Purpose = "signin" | "signup" | "reset";
 
+/** the bot check's public key, learned from the server's first « bot » answer (then sent with every guarded request) */
+let sitekey: string | null = null;
+
 export function SignIn() {
   const { t, lang } = useT();
   const { refresh } = useMe();
@@ -31,10 +34,10 @@ export function SignIn() {
   const [code, setCode] = useState("");
   const [proof, setProof] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<ErrorText | null>(null);
+  // an account the bank's guard blocked arrives here with ?blocked (web/app/coce/bank.ts)
+  const [error, setError] = useState<ErrorText | null>(() => (new URLSearchParams(location.search).has("blocked") ? (w: typeof DICTS.fr) => w.blocked : null));
   const [shake, setShake] = useState(0);
   const [wait, setWait] = useState(0);
-  const [human, setHuman] = useState<string | null>(null); // the bot check's public key, when the server asks for it
   const errorLine = error?.(t, lang) ?? null;
   const addr = email.trim();
 
@@ -45,7 +48,7 @@ export function SignIn() {
     const until = String(d.until ?? "");
     const known: Record<string, ErrorText> = {
       closed: (w) => w.closed, too_many: (w) => w.tooMany, busy: (w) => w.tooMany, bot: (w) => w.networkError, mail: (w) => w.mailFailed, network: (w) => w.networkError,
-      expired: (w) => w.codeExpired, wrong: (w) => w.codeWrong, email: (w) => w.badEmail,
+      expired: (w) => w.codeExpired, wrong: (w) => w.codeWrong, email: (w) => w.badEmail, blocked: (w) => w.blocked,
       locked: (w, l) => w.locked(new Date(until).toLocaleTimeString(l === "fr" ? "fr-FR" : "en-GB", { hour: "2-digit", minute: "2-digit" })),
     };
     if (known[d.error]) return known[d.error];
@@ -56,6 +59,17 @@ export function SignIn() {
     return (w) => w.pageError(what);
   };
   const fail = (err: unknown) => setError(() => message(err));
+  /** a request the server guards with Cloudflare's bot check: a fresh token goes with it (each is good once); without a
+   *  known key the server answers « bot » with its key, and the request goes once more with a token */
+  async function guarded<T>(path: string, body: Record<string, unknown>, action: string): Promise<T> {
+    const once = async () => api<T>(path, { ...body, turnstile: sitekey ? await humanToken(sitekey, action, lang, document.getElementById("ts-slot")).catch(() => "") : undefined });
+    try { return await once(); } catch (err) {
+      const d = err instanceof ApiError ? err.data : {};
+      if (d.error !== "bot" || !d.turnstile || sitekey === d.turnstile) throw err;
+      sitekey = String(d.turnstile);
+      return once();
+    }
+  }
   const remember = () => { try { sessionStorage.setItem("door-email", addr); } catch { /* fine */ } };
   const goTo = (s: Step) => { setError(null); setStep(s); };
 
@@ -65,8 +79,7 @@ export function SignIn() {
     if (!addr) return;
     setBusy(true); setError(null);
     try {
-      const r = await api<{ exists: boolean; turnstile?: string }>("/auth/exists", { email: addr });
-      setHuman(r.turnstile ?? null);
+      const r = await guarded<{ exists: boolean }>("/auth/exists", { email: addr }, "door");
       remember();
       setPassword("");
       if (r.exists) { setPurpose("signin"); goTo("password"); }
@@ -81,7 +94,7 @@ export function SignIn() {
     if (!password) return;
     setBusy(true); setError(null);
     try {
-      await api("/auth/login", { email: addr, password: await stretch(addr, password) });
+      await guarded("/auth/login", { email: addr, password: await stretch(addr, password) }, "login");
       await refresh();
     } catch (err) {
       const d = err instanceof ApiError ? err.data : {};
@@ -94,8 +107,7 @@ export function SignIn() {
   async function sendCode(why: Purpose) {
     setBusy(true); setError(null);
     try {
-      const turnstile = why === "signup" && human ? await humanToken(human, "signup", lang, document.getElementById("ts-slot")).catch(() => "") : undefined;
-      await api("/auth/code", { email: addr, lang, why, turnstile });
+      await guarded("/auth/code", { email: addr, lang, why }, "code");
       remember();
       setPurpose(why); setCode(""); setWait(30); goTo("code");
     } catch (err) {
@@ -203,7 +215,6 @@ export function SignIn() {
               </label>
             ))}
           </div>
-          <div className="ts-slot" id="ts-slot" />
           <Button type="submit" kind="primary" className="full" busy={busy} disabled={s < 1 || !terms}>{t.getCode}</Button>
         </form>
       )}
@@ -230,6 +241,7 @@ export function SignIn() {
           <Button type="submit" kind="primary" className="full" busy={busy} disabled={s < 1}>{t.savePassword}</Button>
         </form>
       )}
+      <div className="ts-slot" id="ts-slot" />
     </AuthShell>
   );
 }

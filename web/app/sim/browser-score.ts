@@ -105,6 +105,8 @@ const ASKED_STORE = (id: string) => `tcfm-asked:${id}`;
 export function askedHere(): string[] {
   try { const v = JSON.parse(localStorage.getItem(ASKED_STORE(person.id)) ?? "[]"); return Array.isArray(v) ? v.filter((q): q is string => typeof q === "string") : []; } catch { return []; }
 }
+/** « erase everything from this device » at sign-out */
+export function forgetAskedHere() { try { localStorage.removeItem(ASKED_STORE(person.id)); } catch { /* fine */ } }
 function rememberAsked(questions: string[]) {
   if (!questions.length) return;
   try { localStorage.setItem(ASKED_STORE(person.id), JSON.stringify(mergeAsked(askedHere(), questions))); } catch { /* fine */ }

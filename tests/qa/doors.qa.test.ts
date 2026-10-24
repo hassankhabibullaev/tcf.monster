@@ -123,7 +123,11 @@ describe("headers on every API answer", () => {
     expect(page.headers.get("x-robots-tag")).toBe("noindex");
     const file = await qa.call("/assets/app-1.js");
     expect(file.headers.get("cache-control")).toBeNull();
-    expect((await qa.call("/data/exam-co-12.json")).text).toBe("asset /data/exam-co-12.json");
+    // the question bank only to a signed-in person, kept by the browser alone
+    expect((await qa.call("/data/exam-co-12.json")).status).toBe(401);
+    const data = await qa.call("/data/exam-co-12.json", { cookie: await qa.signUp("reader@example.com") });
+    expect(data.text).toBe("asset /data/exam-co-12.json");
+    expect(data.headers.get("cache-control")).toBe("private, max-age=3600");
   });
 });
 

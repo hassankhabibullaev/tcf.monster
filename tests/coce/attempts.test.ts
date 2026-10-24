@@ -51,8 +51,12 @@ const call = async (path: string, o: { method?: string; body?: unknown; who?: Me
 };
 const start = (section = "co", n = 12, who = me, mode?: string) => call("/attempts", { body: mode ? { section, exam: n, mode } : { section, exam: n }, who });
 /** move an attempt's clock back by `minutes` */
-const age = (id: number, minutes: number) => raw.prepare("UPDATE attempts SET started_at = ?, deadline_at = ? WHERE id = ?")
-  .run(new Date(Date.now() - minutes * 60000).toISOString(), new Date(Date.now() - minutes * 60000 + 35 * 60000).toISOString(), id);
+const age = (id: number, minutes: number) => {
+  raw.prepare("UPDATE attempts SET started_at = ?, deadline_at = ? WHERE id = ?")
+    .run(new Date(Date.now() - minutes * 60000).toISOString(), new Date(Date.now() - minutes * 60000 + 35 * 60000).toISOString(), id);
+  // the daily cap counts the starts (deleting an attempt does not give its start back): the n-th start ages with it
+  raw.prepare("UPDATE starts SET at = ? WHERE rowid = ?").run(new Date(Date.now() - minutes * 60000).toISOString(), id);
+};
 
 describe("scoring", () => {
   it("points by level, no floor (the real sum), NCLC from the IRCC ranges, blank = missing or skipped", () => {
@@ -81,8 +85,8 @@ describe("the attempts routes", () => {
     expect(r.data.attempt).toMatchObject({ id: 1, section: "co", exam: 12, mode: "exam", finishedAt: null, ended: null, score: null, answers: {} });
     expect(Date.parse(r.data.attempt.deadlineAt) - Date.parse(r.data.attempt.startedAt)).toBe(35 * 60000);
     expect(r.data.attempt.byLevel).toBeUndefined();
-    expect(stmts).toBeLessThanOrEqual(7); // the running attempt, the mock running (docs/MOCK-EXAM.md §7), the budget, the day's count, the insert, the read-back
-    expect(count("SELECT writes n FROM budget")).toBe(1);
+    expect(stmts).toBeLessThanOrEqual(9); // the running attempt, the mock running (docs/MOCK-EXAM.md §7), the budget (twice: the router's hold line), the day's starts, the insert, the start counted, the read-back
+    expect(count("SELECT writes n FROM budget")).toBe(2); // the attempt and its start
     const again = await start("ce", 3);
     expect(again.status).toBe(409);
     expect(again.data.running.id).toBe(1);
@@ -115,20 +119,16 @@ describe("the attempts routes", () => {
     expect((await call("/attempts/2")).data.attempt.mode).toBe("exam");
   });
 
-  it("refuses a bad section or exam, holds past the budget, caps at 6 a day", async () => {
+  it("refuses a bad section or exam, holds past the budget, and has no daily quota", async () => {
     expect((await call("/attempts", { body: { section: "xx", exam: 1 } })).status).toBe(400);
     expect((await call("/attempts", { body: { section: "co", exam: 41 } })).status).toBe(400);
     expect((await call("/attempts", { body: { section: "co", exam: 0 } })).status).toBe(400);
-    for (let i = 1; i <= 6; i++) {
+    // no daily quota: someone may sit every exam in a day (the guard watches only what no person does)
+    for (let i = 1; i <= 7; i++) {
       expect((await start("co", i)).status).toBe(201);
       await call(`/attempts/${i}/finish`, { body: { ended: "done" } });
     }
-    expect((await start("co", 7)).data).toEqual({ error: "daily_cap" });
-    // an old attempt no longer counts
-    age(1, 25 * 60);
-    expect((await start("co", 7)).status).toBe(201);
-    await call("/attempts/7/finish", { body: { ended: "done" } });
-    raw.prepare("UPDATE budget SET writes = 60000").run();
+    raw.prepare("UPDATE budget SET writes = 50000").run();
     const held = await start("co", 8);
     expect(held.status).toBe(503);
     expect(held.data).toEqual({ error: "hold" });
@@ -143,11 +143,11 @@ describe("the attempts routes", () => {
     expect(stmts).toBe(3); // read, write, budget
     const p2 = await call("/attempts/1", { method: "PATCH", body: { answers: { "CO-12-02": "C", "CO-12-03": "-", "bad key": "A", "CO-12-04": "E" } } });
     expect(p2.data.attempt.answers).toEqual({ "CO-12-01": "A", "CO-12-02": "C", "CO-12-03": "-" });
-    expect(count("SELECT writes n FROM budget")).toBe(3);
+    expect(count("SELECT writes n FROM budget")).toBe(4);
     stmts = 0;
     await call("/attempts/1", { method: "PATCH", body: { answers: { "CO-12-01": "A" } } });
     expect(stmts).toBe(1); // nothing changed: nothing written
-    expect(count("SELECT writes n FROM budget")).toBe(3);
+    expect(count("SELECT writes n FROM budget")).toBe(4);
     expect((await call("/attempts/1", { method: "PATCH", body: {} })).status).toBe(400);
     expect((await call("/attempts/1")).data.attempt.answers["CO-12-02"]).toBe("C");
   });
@@ -203,7 +203,7 @@ describe("the attempts routes", () => {
     expect(typeof r.data.attempt.finishedAt).toBe("string");
     expect(assetReads).toBe(1);
     expect(stmts).toBeLessThanOrEqual(4); // read, write, budget, read back
-    expect(count("SELECT writes n FROM budget")).toBe(3); // start, patch, finish
+    expect(count("SELECT writes n FROM budget")).toBe(4); // start (the attempt and its start), patch, finish
     expect((await call("/attempts/1/finish", { body: { ended: "done" } })).status).toBe(409);
     expect((await call("/attempts/running")).data.attempt).toBeNull();
     // the row in the database carries the same numbers

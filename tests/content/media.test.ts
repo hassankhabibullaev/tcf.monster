@@ -46,7 +46,8 @@ const r2 = fakeR2({
   "media/co/abc123.mp3": { bytes: audio, contentType: "audio/mpeg" },
   "media/ce/pic.webp": { bytes: bytes(40) },
 });
-const env = { FILES: r2 } as unknown as Env;
+// this Mac: the Worker reads R2 (on Cloudflare the files are static and the Worker answers 404: tests/qa/media.qa.test.ts)
+const env = { FILES: r2, LOCAL_DEV: "1" } as unknown as Env;
 const get = (key: string, headers: Record<string, string> = {}, method = "GET") =>
   handleMedia(new Request(`https://app.tcf.monster/${key}`, { method, headers }), env, key);
 

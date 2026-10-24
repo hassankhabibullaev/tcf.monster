@@ -232,7 +232,7 @@ describe("sign-up codes share the day's e-mails", () => {
   it("a new address gets no code once today's mails reach the limit minus the reserve; an account still does", async () => {
     await signUp("lea@example.com");
     const now = new Date().toISOString();
-    for (let i = 0; i < 85; i++) raw.prepare("INSERT INTO mail (at, email, kind, ok) VALUES (?, 'x@example.com', 'signin', 1)").run(now);
+    for (let i = 0; i < 85; i++) raw.prepare("INSERT INTO mail (at, email, kind, ok) VALUES (?, 'x@example.com', 'welcome', 1)").run(now);
     const r = await call("/auth/code", { email: "new@example.com", lang: "en" });
     expect(r.status).toBe(429);
     expect(r.data.error).toBe("busy");
@@ -244,22 +244,28 @@ describe("sign-up codes share the day's e-mails", () => {
     for (let i = 0; i < 30; i++) raw.prepare("INSERT INTO mail (at, email, kind, ok) VALUES (?, ?, 'signup', 1)").run(now, `p${i}@example.com`);
     expect((await call("/auth/code", { email: "new@example.com", lang: "en" })).data.error).toBe("busy");
   });
-  it("with Turnstile on, a sign-up code needs a good answer for this action and address", async () => {
+  it("with Turnstile on, the e-mail step, every code and every password need a good answer for that action and address", async () => {
     Object.assign(env, { TURNSTILE_SITEKEY: "0xSITE", TURNSTILE_SECRET: "0xSECRET" });
-    const ex = await call("/auth/exists", { email: "new@example.com" });
-    expect(ex.data).toEqual({ exists: false, turnstile: "0xSITE" });
-    let answer: Record<string, unknown> = { success: true, action: "signup", hostname: "tcf.monster" };
+    let answer: Record<string, unknown> = { success: true, action: "door", hostname: "tcf.monster" };
     vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
       if (String(url).includes("turnstile/v0/siteverify")) { expect(String(init.body)).toContain("secret=0xSECRET"); return Response.json(answer); }
       const b = JSON.parse(String(init.body)); mails.push({ to: b.to[0], subject: b.subject, text: b.text, html: b.html }); return new Response("{}");
     });
+    // the e-mail step: without a token the page gets the key, and nothing about the address
+    expect((await call("/auth/exists", { email: "new@example.com" })).data).toEqual({ error: "bot", turnstile: "0xSITE" });
+    expect((await call("/auth/exists", { email: "new@example.com", turnstile: "tok" })).data).toEqual({ exists: false });
+    // codes: the same answer for a new address and an existing one
     expect((await call("/auth/code", { email: "new@example.com", lang: "en" })).data.error).toBe("bot");
     answer = { success: true, action: "login", hostname: "tcf.monster" };
     expect((await call("/auth/code", { email: "new@example.com", lang: "en", turnstile: "tok" })).data.error).toBe("bot");
-    answer = { success: true, action: "signup", hostname: "evil.example" };
+    answer = { success: true, action: "code", hostname: "evil.example" };
     expect((await call("/auth/code", { email: "new@example.com", lang: "en", turnstile: "tok" })).data.error).toBe("bot");
-    answer = { success: true, action: "signup", hostname: "tcf.monster" };
+    answer = { success: true, action: "code", hostname: "tcf.monster" };
     expect((await call("/auth/code", { email: "new@example.com", lang: "en", turnstile: "tok" })).status).toBe(200);
+    // a password tried without a check is not even looked at
+    answer = { success: false };
+    const r = await call("/auth/login", { email: "new@example.com", password: "a".repeat(43) });
+    expect(r.data).toEqual({ error: "bot", turnstile: "0xSITE" });
   });
 });
 

@@ -26,6 +26,8 @@ export function makeD1(file = ":memory:") {
     const st = db.prepare(sql);
     const vals = args.map((a) => (typeof a === "boolean" ? Number(a) : a === undefined ? null : a)) as never[];
     if (/^\s*(select|with)/i.test(sql)) return { results: (st.all(...vals) as Row[]).map((r) => ({ ...r })), success: true, meta: { changes: 0 } };
+    // a write that hands its rows back (INSERT/UPDATE/DELETE … RETURNING), as D1 does
+    if (/\breturning\b/i.test(sql)) { const rows = (st.all(...vals) as Row[]).map((r) => ({ ...r })); return { results: rows, success: true, meta: { changes: rows.length } }; }
     const r = st.run(...vals);
     return { results: [] as Row[], success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
   };
@@ -105,7 +107,7 @@ export function makeEnv(o: { db?: string; files?: string; assets?: string } = {}
   const r2 = makeR2(o.files);
   const env = {
     DB: d1, FILES: r2, ASSETS: makeAssets(o.assets),
-    APP_TZ: "Asia/Tashkent", OWNER_EMAIL: "owner@example.com", ADMIN_OPEN: "1", MAIL_FROM: "tcf.monster <test@example.com>", WRITES_FLUSH_EVERY: "1",
+    APP_TZ: "Asia/Tashkent", OWNER_EMAIL: "owner@example.com", ADMIN_OPEN: "1", MAIL_FROM: "tcf.monster <test@example.com>", WRITES_FLUSH_EVERY: "1", LOCAL_DEV: "1",
   } as Record<string, unknown>;
   return { env, raw, r2 };
 }

@@ -9,11 +9,17 @@ type Expr = { id: number; section: "ee" | "eo"; kind: string; taches: string; mo
 type Practice = { day: string; section: "co" | "ce"; level: string; answered: number; wrong: number; seconds: number; last_at: string };
 type Report = { id: number; section: "co" | "ce"; level: string; n: number; message: string; status: "open" | "resolved"; created_at: string };
 type Detail = {
-  user: { id: string; email: string; name: string | null; created_at: string; last_seen_at: string | null; target_nclc: number | null; exam_date: string | null; lang: string; settings: Record<string, unknown>; terms_version: string | null; terms_at: string | null; gemini_status: string; gemini_checked_at: string | null; gemini_error: string | null; note: string | null; has_password: boolean };
+  user: { id: string; email: string; name: string | null; created_at: string; last_seen_at: string | null; target_nclc: number | null; exam_date: string | null; lang: string; settings: Record<string, unknown>; terms_version: string | null; terms_at: string | null; gemini_status: string; gemini_checked_at: string | null; gemini_error: string | null; note: string | null; has_password: boolean; blocked_at: string | null; blocked_reason: string | null; human_until: string | null; human_needed_at: string | null; human_reason: string | null; human_fails: number };
   devices: { id: string; device: string | null; created_at: string; last_seen_at: string }[];
   colours: Record<string, { ok: number; bad: number; amber: number }>;
   attempts: Attempt[]; expression: Expr[]; practice: Practice[]; answeredToday: number; disputes: Report[];
+  /** question-bank files opened (worker/coce/guard.ts) */
+  bank: Record<"data", { today: number; week: number }>;
+  /** what the abuse guard did (worker/guard.ts), newest first, and today's counted requests and changes */
+  guard: { events: { at: string; kind: string; detail: string | null }[]; today: { requests: number; writes: number } };
 };
+
+const GUARD_CHIP: Record<string, [Tone, string]> = { challenged: ["amber", "human check asked"], passed: ["ok", "check passed"], failed: ["bad", "check failed"], blocked: ["bad", "blocked"], unblocked: ["ok", "unblocked"] };
 
 const KEY_CHIP: Record<string, [Tone, string]> = { ok: ["ok", "working"], error: ["bad", "rejected"], quota: ["amber", "limit"], none: ["new", "none"] };
 
@@ -68,7 +74,7 @@ function SectionCard({ s, d, total }: { s: Section; d: Detail; total?: number })
   );
 }
 
-type Act = "signout" | "reset-progress" | "delete" | null;
+type Act = "signout" | "reset-progress" | "delete" | "block" | "unblock" | null;
 
 export function Person({ id }: { id: string }) {
   const { data: d, error, reload } = useApi<Detail>(`/people/${id}`);
@@ -97,7 +103,7 @@ export function Person({ id }: { id: string }) {
       await api(`/people/${id}/${act}`, act === "reset-progress" ? { section: resetWhat } : {});
       const name = u.name ?? u.email;
       if (act === "delete") { say(`${name}'s account was deleted`); close(); go("/"); return; }
-      say({ signout: `${name} is signed out everywhere`, "reset-progress": "Progress reset" }[act]);
+      say({ signout: `${name} is signed out everywhere`, "reset-progress": "Progress reset", block: `${name} is blocked`, unblock: `${name} can sign in again` }[act]);
       close(); reload();
     } catch (e) {
       say((e as Error).message, "bad");
@@ -112,6 +118,8 @@ export function Person({ id }: { id: string }) {
   const sheet = {
     signout: { title: `Sign ${u.name ?? "this person"} out everywhere?`, body: `${plural(d.devices.length, "device")} will ask for the password again.`, button: "Sign out everywhere", danger: false },
     "reset-progress": { title: "Reset progress?", body: "Practice colours, exam attempts and results are deleted for what you choose. This cannot be undone.", button: "Reset", danger: true },
+    block: { title: `Block ${u.name ?? "this person"}?`, body: "Every device is signed out and signing in is refused until you unblock.", button: "Block", danger: true },
+    unblock: { title: `Unblock ${u.name ?? "this person"}?`, body: "They can sign in again; today's counts and any pending human check start from zero.", button: "Unblock", danger: false },
     delete: { title: "Delete this account?", body: "The account and everything in it go: progress, results, key, devices. This cannot be undone.", button: "Delete account", danger: true },
   } as const;
   const s = act ? sheet[act] : null;
@@ -123,13 +131,14 @@ export function Person({ id }: { id: string }) {
         <div className="person-id">
           <span className="avatar" aria-hidden="true">{(u.name ?? u.email)[0].toUpperCase()}</span>
           <div>
-            <h1 className="title">{u.name ?? u.email}</h1>
-            <p className="muted">{u.email}</p>
+            <h1 className="title">{u.name ?? u.email}{u.blocked_at && <> <Chip tone="bad" dot>blocked</Chip></>}</h1>
+            <p className="muted">{u.email}{u.blocked_at && ` · blocked ${when(u.blocked_at)}: ${u.blocked_reason ?? ""}`}</p>
           </div>
         </div>
         <div className="person-actions">
           <Button size="sm" onClick={() => setAct("signout")} disabled={!d.devices.length}>Sign out everywhere</Button>
           <Button size="sm" onClick={() => setAct("reset-progress")}>Reset progress</Button>
+          {u.blocked_at ? <Button size="sm" onClick={() => setAct("unblock")}>Unblock</Button> : <Button size="sm" onClick={() => setAct("block")}>Block</Button>}
           <Button size="sm" kind="danger" onClick={() => setAct("delete")}>Delete account</Button>
         </div>
       </div>
@@ -140,6 +149,8 @@ export function Person({ id }: { id: string }) {
         <div><dt>Exam</dt><dd>{u.exam_date ? <ExamDate d={u.exam_date} /> : "not registered yet"}</dd></div>
         <div><dt>Language</dt><dd>{u.lang === "en" ? "English" : "Français"}</dd></div>
         <div><dt>Today</dt><dd>{plural(d.answeredToday, "answer")}</dd></div>
+        <div><dt>Bank opened</dt><dd>{plural(d.bank.data.today, "file")} today · {num(d.bank.data.week)} in 7 days</dd></div>
+        <div><dt>Requests today</dt><dd>{num(d.guard.today.requests)} · {plural(d.guard.today.writes, "change")}</dd></div>
       </dl>
 
       <div className="sections">
@@ -186,6 +197,22 @@ export function Person({ id }: { id: string }) {
                 ))}
               </ul>
             ) : <p className="muted">None sent.</p>}
+          </section>
+          <section className="card pad">
+            <div className="card-head"><h2>Guard</h2><span className="muted">{d.guard.events.length}</span></div>
+            {u.human_needed_at && <p><Chip tone="amber" dot>human check pending</Chip> <span className="muted">{when(u.human_needed_at)}: {u.human_reason}</span></p>}
+            {u.human_until && Date.parse(u.human_until) > Date.now() && <p><Chip tone="ok" dot>passed</Chip> <span className="muted">until {when(u.human_until)}</span></p>}
+            {d.guard.events.length ? (
+              <ul className="list">
+                {d.guard.events.map((e, i) => (
+                  <li key={i} className="list-row">
+                    <span className="nowrap muted">{when(e.at)}</span>
+                    <span className="ellipsis">{e.detail ?? ""}</span>
+                    <Chip tone={GUARD_CHIP[e.kind]?.[0] ?? "muted"} dot>{GUARD_CHIP[e.kind]?.[1] ?? e.kind}</Chip>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="muted">Nothing unusual.</p>}
           </section>
           <section className="card pad">
             <h2>Account</h2>

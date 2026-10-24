@@ -7,6 +7,7 @@ import { Toast } from "../ui/ui.tsx";
 import { useLocation, replace } from "../ui/router.ts";
 import { api, ApiError, type Me } from "./api.ts";
 import { watchRequests, setCacheOwner, staleBundle, keepBundle } from "./api-cache.ts";
+import { installGuardFetch } from "./guard-fetch.ts";
 import { setScoringPerson, keyStatusHere, onKeyChange } from "./sim/browser-score.ts";
 import { setWorkOwner } from "./sim/work.ts";
 import { DICTS, LangContext, guessLang, rememberLang, type Lang } from "./i18n.ts";
@@ -85,6 +86,8 @@ export function modernize(path: string, search: string, hash = ""): string | nul
 }
 
 watchRequests();
+// the abuse guard's human check and block, for every call to our own server (web/app/guard-fetch.ts)
+installGuardFetch();
 // a file of this app that is gone (a deploy happened while the tab was open): the page reloads once to the new app
 // (work in progress is kept by the rooms; a second failure within a minute is left to show)
 window.addEventListener("vite:preloadError", (e) => {
@@ -177,7 +180,7 @@ function App() {
   // the door: signed out → /sign-in?next=…; signed in on the door → where they were going
   const isPublic = PUBLIC.includes(path);
   const next = new URLSearchParams(location.search).get("next");
-  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  const safeNext = next && /^\/(?![\/\\])/.test(next) ? next : "/";
   useEffect(() => {
     if (me === undefined || modern) return;
     if (me === null && !isPublic) replace(`/sign-in${path === "/" ? "" : `?next=${encodeURIComponent(path + location.search)}`}`);

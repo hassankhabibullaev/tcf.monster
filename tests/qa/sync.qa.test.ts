@@ -132,14 +132,14 @@ describe("replays and two devices", () => {
 describe("the budget", () => {
   it("{ hold } at exactly BUDGET_HOLD, nothing written, and the queue is accepted again once the day turns", async () => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tashkent" }).format(new Date());
-    qa.raw.prepare("INSERT INTO budget (day, writes) VALUES (?, 59999)").run(today);
+    qa.raw.prepare("INSERT INTO budget (day, writes) VALUES (?, 49999)").run(today);
     expect((await sync([ev({ t: now() - 5, qid: "a" })])).data).toEqual({ ok: true, applied: 1 });
-    expect(qa.count("SELECT writes n FROM budget")).toBe(59999 + 2);
+    expect(qa.count("SELECT writes n FROM budget")).toBe(49999 + 2);
     const held = await sync([ev({ t: now() - 4, qid: "b" })]);
     expect(held.status).toBe(200);
     expect(held.data).toEqual({ hold: true });
     expect(stored().q.b).toBeUndefined();
-    expect(qa.count("SELECT writes n FROM budget")).toBe(60001);
+    expect(qa.count("SELECT writes n FROM budget")).toBe(50001);
     qa.raw.prepare("UPDATE budget SET day = '2000-01-01'").run();
     expect((await sync([ev({ t: now() - 4, qid: "b" })])).data.applied).toBe(1);
   });

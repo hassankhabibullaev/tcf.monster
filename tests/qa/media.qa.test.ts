@@ -4,18 +4,35 @@ import worker from "../../worker/index.ts";
 import { setup, teardown, type QA, type Row } from "./helpers.ts";
 
 let qa: QA;
+let cookie = "";
 const audio = Array.from({ length: 1000 }, (_, i) => String.fromCharCode(97 + (i % 26))).join("");
 beforeEach(async () => {
   qa = setup();
   await qa.r2.put("media/co/abc123.mp3", audio);
   await qa.r2.put("media/ce/pic.svg", "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>");
   await qa.r2.put("backups/2026-10-17/users-0000.json", "[{\"email\":\"secret@b.com\"}]");
+  cookie = await qa.signUp("listener@example.com");
 });
 afterEach(teardown);
 const get = (path: string, o: { method?: string; headers?: Record<string, string>; host?: string } = {}) =>
-  worker.fetch(new Request(`https://${o.host ?? "tcf.monster"}${path}`, { method: o.method ?? "GET", headers: o.headers }), qa.env);
+  worker.fetch(new Request(`https://${o.host ?? "tcf.monster"}${path}`, { method: o.method ?? "GET", headers: { cookie, ...o.headers } }), qa.env);
 
 describe("/media/*", () => {
+  it("on Cloudflare a name that reaches the Worker is never a file: the export's old names answer 404, R2 is not read", async () => {
+    (qa.env as Row).LOCAL_DEV = "0";
+    const reads: string[] = [];
+    const g = qa.r2.get.bind(qa.r2);
+    (qa.r2 as Row).get = async (k: string, o?: unknown) => { reads.push(k); return g(k, o as never); };
+    for (const c of ["", cookie]) {
+      for (const m of ["GET", "HEAD"]) {
+        const r = await worker.fetch(new Request("https://tcf.monster/media/co/abc123.mp3", { method: m, headers: c ? { cookie: c } : {} }), qa.env);
+        expect(r.status, m).toBe(404);
+        expect(await r.text()).not.toBe(audio);
+      }
+    }
+    expect(reads).toEqual([]);
+  });
+
   it("no path reaches outside media/co|ce: dot segments (plain or encoded), a backslash, a double slash, an empty name", async () => {
     const gets: string[] = [];
     const g = qa.r2.get.bind(qa.r2);

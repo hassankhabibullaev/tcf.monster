@@ -17,9 +17,13 @@ export const JOBS: Record<string, Job> = {
   mails: { title: "Exam and welcome mails", run: (env) => newsJob(env) },
 };
 
+/** a job by name; « backup:<table> » backs up one table, « backup:prune » drops the old days */
 export async function runJob(env: Env, name: string): Promise<JobResult> {
-  const job = JOBS[name];
+  const [base, part] = name.split(":");
+  const job: Job | undefined = base === "backup" && part ? { title: "Nightly backup", run: (e) => backup(e, part) } : JOBS[name];
   if (!job) return { ok: false, detail: "unknown job" };
+  // a line before the work: a run the platform cuts short still shows it began
+  await env.DB.prepare("INSERT INTO job_log (at, name, ok, detail) VALUES (?, ?, 0, 'started')").bind(nowIso(), name).run().catch(() => {});
   const t0 = Date.now();
   let r: JobResult;
   try { r = await job.run(env); } catch (e) { r = { ok: false, detail: String((e as Error)?.message ?? e).slice(0, 300) }; }
@@ -38,7 +42,12 @@ async function cleanup(env: Env): Promise<JobResult> {
   const cut = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
   const r = await env.DB.batch([
     env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(now),
-    env.DB.prepare("DELETE FROM codes WHERE expires_at < ?").bind(now),
+    // a code's row also counts that address's codes of the day: kept until its day is over
+    env.DB.prepare("DELETE FROM codes WHERE expires_at < ? AND (day_at IS NULL OR day_at < ?)").bind(now, cut(1)),
+    env.DB.prepare("DELETE FROM starts WHERE at < ?").bind(cut(2)),
+    env.DB.prepare("DELETE FROM bank_reads WHERE day < ?").bind(cut(2).slice(0, 10)),
+    env.DB.prepare("DELETE FROM usage WHERE day < ?").bind(cut(3).slice(0, 10)),
+    env.DB.prepare("DELETE FROM guard_events WHERE at < ?").bind(cut(90)),
     env.DB.prepare("DELETE FROM budget WHERE day < ?").bind(cut(30).slice(0, 10)),
     env.DB.prepare("DELETE FROM job_log WHERE at < ?").bind(cut(60)),
     env.DB.prepare("DELETE FROM mail WHERE at < ?").bind(cut(90)),

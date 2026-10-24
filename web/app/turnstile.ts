@@ -1,4 +1,4 @@
-// Turnstile, Cloudflare's free bot check, before a sign-up code is sent. Loaded only when the server hands over its
+// Turnstile, Cloudflare's free bot check, before the e-mail step, every code and every password. Loaded only once the server hands over its
 // public key (a new address, the check switched on). It stays invisible unless Cloudflare wants a click; then its box
 // shows in the form, just above the button. Two minutes without an answer count as a failure (the button never spins
 // forever).

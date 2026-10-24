@@ -35,7 +35,7 @@ export function Welcome() {
     const ok = await update({ name: name.trim(), target_nclc: target, exam_date: noDate ? null : date });
     if (!ok) { setBusy(false); return; }
     const next = new URLSearchParams(location.search).get("next");
-    replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
+    replace(next && /^\/(?![\/\\])/.test(next) ? next : "/");
   }
 
   return (

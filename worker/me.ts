@@ -1,6 +1,7 @@
 // The signed-in person's own account: read it, change it (profile, preferences), sign out everywhere, delete it.
+import { isOwnerEmail } from "./access.ts";
 import { type Env, json, fail, readJson } from "./util.ts";
-import { type Me, sendCode, checkCode, sessionCookie } from "./auth.ts";
+import { type Me, sendCode, checkCode, sessionCookie, accountRoom, networkOf } from "./auth.ts";
 import { maybeWelcome } from "./news.ts";
 import { runningNow } from "./coce/attempts.ts";
 import { sendDesigned } from "./mail.ts";
@@ -14,7 +15,7 @@ export async function profile(env: Env, me: Me) {
   if (!u) return null;
   let settings = {};
   try { settings = JSON.parse(String(u.settings)); } catch { /* keep {} */ }
-  return { ...u, settings, isOwner: String(u.email).toLowerCase() === env.OWNER_EMAIL.toLowerCase() };
+  return { ...u, settings, isOwner: isOwnerEmail(env, String(u.email)) };
 }
 
 /** settings are merged one level deep, so two devices changing different switches both win */
@@ -80,7 +81,9 @@ export async function handleMe(req: Request, env: Env, me: Me, path: string): Pr
 
   if (path === "/me/delete/code") {
     const u = await env.DB.prepare("SELECT lang FROM users WHERE id = ?").bind(me.id).first<{ lang: string }>();
-    const r = await sendCode(env, me.email, "delete", u?.lang ?? "en");
+    // the same limits as every code for an account: the site's hour, the network's day
+    if (!(await accountRoom(env))) return json({ error: "busy" }, 429);
+    const r = await sendCode(env, me.email, "delete", u?.lang ?? "en", "delete", await networkOf(env, req));
     return json(r, "error" in r ? (r.error === "mail" ? 502 : 429) : 200);
   }
 
@@ -90,10 +93,12 @@ export async function handleMe(req: Request, env: Env, me: Me, path: string): Pr
     const who = await env.DB.prepare("SELECT lang FROM users WHERE id = ?").bind(me.id).first<{ lang: string }>();
     const d = env.DB;
     await d.batch([d.prepare("DELETE FROM expr_tasks WHERE session_id IN (SELECT id FROM expr_sessions WHERE user_id = ?)").bind(me.id)]
-      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(me.id)))
+      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(me.id)))
       .concat(d.prepare("DELETE FROM codes WHERE email = ?").bind(me.email), d.prepare("DELETE FROM users WHERE id = ?").bind(me.id)));
     // the last mail, once everything is gone (a failed send changes nothing: the account is deleted either way)
     await sendDesigned(env, me.email, "deleted", { lang: who?.lang ?? "en" }).catch((e) => console.error(e));
+    // and the address leaves the mail log too (the day's count loses a few lines, nothing more)
+    await env.DB.prepare("DELETE FROM mail WHERE email = ?").bind(me.email).run();
     return json({ ok: true }, 200, { "set-cookie": sessionCookie(req, "", 0) });
   }
 

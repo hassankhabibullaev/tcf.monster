@@ -3,7 +3,8 @@
 // while it works, then its state) —, every line is « label · value · one button ». Every change is saved the moment it is confirmed; « Saved » only once
 // the server has it; a refused change comes back to the old value by itself (main.tsx `update`). The password changes
 // only with a code sent by e-mail.
-import { forgetKeyHere } from "../sim/browser-score.ts";
+import { forgetKeyHere, forgetAskedHere } from "../sim/browser-score.ts";
+import { forgetMocksHere } from "../mock/store.ts";
 import { dropAllWork } from "../sim/work.ts";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BackLink, Button, Sheet, Chip, Icon, MonsterAI } from "../../ui/ui.tsx";
@@ -19,7 +20,7 @@ import { flush, forgetDevice } from "../coce/store.ts";
 import "./profile.css";
 
 const TARGETS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
-type SheetName = null | "delete" | "code" | "removeKey" | "password";
+type SheetName = null | "delete" | "code" | "removeKey" | "password" | "signOut";
 
 /** the settings page's own words (FR / EN), kept here so the shared dictionary stays untouched */
 const SW = {
@@ -28,9 +29,9 @@ const SW = {
     name: "Prénom", target: "Objectif", targetHelp: "le niveau NCLC que vous visez", date: "Date de l'examen", notRegistered: "pas encore inscrit·e",
     email: "E-mail", password: "Mot de passe", passwordHelp: "changé avec un code envoyé par e-mail", passwordSet: "••••••••",
     keyStatus: "État",
-    change: "Modifier", save: "Enregistrer", cancel: "Annuler", remove: "Retirer", signOut: "Se déconnecter", delete: "Supprimer le compte", deleteShort: "Supprimer",
-    keyWhyShort1: "", keyWhyShort2: " tourne sur Gemini avec votre clé gratuite, chiffrée sur votre compte.",
-    keyWhy1: "L'examinatrice de l'expression orale et la correction de vos textes, c'est ", keyWhy2: ", propulsé par Gemini, l'IA de Google. Votre propre clé gratuite le fait tourner : elle reste chiffrée sur votre compte et ne sert qu'à vos séances. Sans elle, l'expression écrite et orale se verrouillent.",
+    change: "Modifier", save: "Enregistrer", cancel: "Annuler", remove: "Retirer", signOut: "Se déconnecter", signOutKeep: "Garder mon travail ici", signOutErase: "Tout effacer de cet appareil", delete: "Supprimer le compte", deleteShort: "Supprimer",
+    keyWhyShort1: "", keyWhyShort2: " tourne sur Gemini avec votre clé gratuite, gardée dans ce navigateur.",
+    keyWhy1: "L'examinatrice de l'expression orale et la correction de vos textes, c'est ", keyWhy2: ", propulsé par Gemini, l'IA de Google. Votre propre clé gratuite le fait tourner : elle reste dans ce navigateur et ne va qu'à Google, pour vos séances. Sans elle, l'expression écrite et orale se verrouillent.",
     pwTitle: "Nouveau mot de passe", pwLead: (e: string) => `Un code a été envoyé à ${e}.`, pwGet: "Recevoir un code", newPw: "Nouveau mot de passe · 8 caractères ou plus", pwSaved: "Mot de passe changé",
   },
   en: {
@@ -38,9 +39,9 @@ const SW = {
     name: "First name", target: "Goal", targetHelp: "the NCLC level you aim for", date: "Exam date", notRegistered: "not registered yet",
     email: "E-mail", password: "Password", passwordHelp: "changed with a code sent by e-mail", passwordSet: "••••••••",
     keyStatus: "Status",
-    change: "Change", save: "Save", cancel: "Cancel", remove: "Remove", signOut: "Sign out", delete: "Delete account", deleteShort: "Delete",
-    keyWhyShort1: "", keyWhyShort2: " runs on Gemini with your free key, encrypted on your account.",
-    keyWhy1: "The speaking examiner and the marking of your texts are ", keyWhy2: ", powered by Gemini, Google's AI. Your own free key runs it: it stays encrypted on your account and is used only for your sessions. Without it, writing and speaking lock.",
+    change: "Change", save: "Save", cancel: "Cancel", remove: "Remove", signOut: "Sign out", signOutKeep: "Keep my work here", signOutErase: "Erase everything from this device", delete: "Delete account", deleteShort: "Delete",
+    keyWhyShort1: "", keyWhyShort2: " runs on Gemini with your free key, kept in this browser.",
+    keyWhy1: "The speaking examiner and the marking of your texts are ", keyWhy2: ", powered by Gemini, Google's AI. Your own free key runs it: it stays in this browser and goes only to Google, for your sessions. Without it, writing and speaking lock.",
     pwTitle: "New password", pwLead: (e: string) => `A code was sent to ${e}.`, pwGet: "Get a code", newPw: "New password · 8 characters or more", pwSaved: "Password changed",
   },
 };
@@ -77,11 +78,14 @@ export function Profile() {
 
   const save = async (patch: Parameters<typeof update>[0]) => { if (await update(patch)) say(t.saved); setEdit(null); };
 
-  async function signOut() {
+  /** keep: the texts, marks and Gemini key stay in this browser for the next sign-in here (they exist nowhere else);
+   *  erase: a shared computer, nothing of the person stays */
+  async function signOut(erase: boolean) {
     setBusy(true);
     await flush().catch(() => {});
     await api("/auth/logout", {}).catch(() => {});
     forgetDevice();
+    if (erase) { forgetKeyHere(); await dropAllWork().catch(() => {}); await forgetMocksHere().catch(() => {}); forgetAskedHere(); }
     signedOut(); replace("/sign-in");
   }
   async function askDeleteCode() {
@@ -149,7 +153,7 @@ export function Profile() {
       <Row label={w.email} value={me.email} />
       <Row label={w.password} help={w.passwordHelp} value={w.passwordSet} action={<Button size="sm" kind="quiet" busy={busy && sheet === null && edit === null} onClick={askPasswordCode}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>} />
       <div className="sacct-actions">
-        <Button busy={busy && sheet === null && edit === null} onClick={signOut}><Icon name="external" size={16} className="mob-only" />{w.signOut}</Button>
+        <Button busy={busy && sheet === null && edit === null} onClick={() => setSheet("signOut")}><Icon name="external" size={16} className="mob-only" />{w.signOut}</Button>
         <Button kind="danger" onClick={() => { setError(null); setSheet("delete"); }}><Icon name="x" size={16} className="mob-only" /><span className="desk-only">{w.delete}</span><span className="mob-only">{w.deleteShort}</span></Button>
       </div>
     </>
@@ -168,6 +172,10 @@ export function Profile() {
         <Button onClick={() => setSheet(null)}>{t.cancel}</Button>
         <Button kind="danger" onClick={() => { forgetKeyHere(); setSheet(null); }}>{t.keyRemove}</Button>
       </>}><p>{t.keyRemoveBody}</p></Sheet>
+      <Sheet open={sheet === "signOut"} title={w.signOut} onClose={() => setSheet(null)} actions={<>
+        <Button kind="danger" busy={busy} onClick={() => void signOut(true)}>{w.signOutErase}</Button>
+        <Button kind="primary" busy={busy} onClick={() => void signOut(false)}>{w.signOutKeep}</Button>
+      </>} />
       <Sheet open={sheet === "delete"} title={t.deleteTitle} onClose={() => setSheet(null)} actions={<>
         <Button onClick={() => setSheet(null)}>{t.cancel}</Button>
         <Button kind="primary" busy={busy} onClick={askDeleteCode}>{t.sendDeleteCode}</Button>

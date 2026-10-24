@@ -1,8 +1,10 @@
 // The admin's API (/api/admin/*): the people who registered and what they do, one person's page and actions, the
 // reports on questions. Owner only once sign-in exists (ADMIN_OPEN = "0"); every request that changes something must
 // carry the header x-admin: 1, which a page on another site cannot send without the browser asking first.
+import { passedAccess, isOwnerEmail } from "./access.ts";
 import { type Env, json, fail, nowIso, day, daysAgoIso, readJson } from "./util.ts";
 import { currentUser } from "./auth.ts";
+import { blockUser, unblockUser } from "./guard.ts";
 
 type Row = Record<string, unknown>;
 const all = async (env: Env, sql: string, ...args: unknown[]) => (await env.DB.prepare(sql).bind(...args).all()).results as Row[];
@@ -13,7 +15,7 @@ const num = (r: Row | null, k = "n") => Number(r?.[k] ?? 0);
 export async function isOwner(env: Env, req: Request) {
   if (env.ADMIN_OPEN === "1") return true;
   const me = await currentUser(env, req);
-  return !!me && me.email.toLowerCase() === env.OWNER_EMAIL.toLowerCase();
+  return !!me && isOwnerEmail(env, me.email) && (await passedAccess(env, req));
 }
 
 /** colours of one person's practice per section: { co: { ok, bad, amber }, ce: … } */
@@ -96,11 +98,12 @@ async function people(env: Env, url: URL) {
   if (filter === "active") where.push("u.last_seen_at >= ?3");
   if (filter === "new") where.push("u.created_at >= ?3");
   if (filter === "exam") where.push("u.exam_date >= ?4");
+  if (filter === "blocked") where.push("u.blocked_at IS NOT NULL");
   const w = where.join(" AND ");
   const args = [q, `%${q}%`, daysAgoIso(7), day(env.APP_TZ)];
   // one query for the page; the counts are read through each table's (user_id, …) index
   const rows = await all(env, `
-    SELECT u.id, u.email, u.name, u.created_at, u.last_seen_at, u.target_nclc, u.exam_date,
+    SELECT u.id, u.email, u.name, u.created_at, u.last_seen_at, u.target_nclc, u.exam_date, u.blocked_at,
       (SELECT COALESCE(SUM(answered), 0) FROM practice_days p WHERE p.user_id = u.id) answered,
       (SELECT COUNT(*) FROM attempts a WHERE a.user_id = u.id AND a.finished_at IS NOT NULL) exams,
       (SELECT COUNT(*) FROM expr_sessions e WHERE e.user_id = u.id AND e.status = 'done') expression
@@ -111,9 +114,9 @@ async function people(env: Env, url: URL) {
 
 async function person(env: Env, id: string) {
   const u = await one(env, `SELECT id, email, name, created_at, last_seen_at, target_nclc, exam_date, lang, settings, terms_version, terms_at,
-    gemini_status, gemini_checked_at, gemini_error, note, password IS NOT NULL has_password FROM users WHERE id = ?`, id);
+    gemini_status, gemini_checked_at, gemini_error, note, password IS NOT NULL has_password, blocked_at, blocked_reason, human_until, human_needed_at, human_reason, human_fails FROM users WHERE id = ?`, id);
   if (!u) return null;
-  const [devices, prog, att, expr, practice, today, reports] = await Promise.all([
+  const [devices, prog, att, expr, practice, today, reports, reads, events, use] = await Promise.all([
     all(env, "SELECT id, device, created_at, last_seen_at, expires_at FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY last_seen_at DESC", id, nowIso()),
     all(env, "SELECT section, level, data FROM progress WHERE user_id = ?", id),
     all(env, "SELECT id, section, exam, mock_id, started_at, deadline_at, finished_at, ended, score, nclc, right_count, wrong_count, blank_count FROM attempts WHERE user_id = ? ORDER BY started_at DESC LIMIT 200", id),
@@ -121,10 +124,19 @@ async function person(env: Env, id: string) {
     all(env, "SELECT day, section, level, answered, wrong, seconds, last_at FROM practice_days WHERE user_id = ? ORDER BY last_at DESC LIMIT 200", id),
     one(env, "SELECT SUM(answered) n FROM practice_days WHERE user_id = ? AND day = ?", id, day(env.APP_TZ)),
     all(env, "SELECT id, section, level, n, message, status, created_at FROM disputes WHERE user_id = ? ORDER BY id DESC LIMIT 100", id),
+    // question-bank files opened, today and over seven days (the guard's counts)
+    all(env, "SELECT kind, SUM(day = ?2) today, COUNT(DISTINCT key) week FROM bank_reads WHERE user_id = ?1 AND day >= ?3 GROUP BY kind",
+      id, day(env.APP_TZ), day(env.APP_TZ, new Date(Date.now() - 6 * 86_400_000))),
+    // what the abuse guard did (worker/guard.ts): checks asked, passed, failed, blocks, unblocks — 90 days
+    all(env, "SELECT at, kind, detail FROM guard_events WHERE user_id = ? ORDER BY at DESC LIMIT 100", id),
+    // requests and changes counted today (written in groups of 25: a light day shows nothing)
+    one(env, "SELECT requests, writes FROM usage WHERE user_id = ? AND day = ?", id, day(env.APP_TZ)),
   ]);
+  const bank = { data: { today: 0, week: 0 } } as Record<string, { today: number; week: number }>;
+  for (const r of reads) if (bank[String(r.kind)]) bank[String(r.kind)] = { today: num(r, "today"), week: num(r, "week") };
   let settings = {};
   try { settings = JSON.parse(String(u.settings)); } catch { /* keep {} */ }
-  return { user: { ...u, settings, has_password: Boolean(u.has_password) }, devices, colours: colours(prog), attempts: att, expression: expr, practice, answeredToday: num(today), disputes: reports };
+  return { user: { ...u, settings, has_password: Boolean(u.has_password) }, devices, colours: colours(prog), attempts: att, expression: expr, practice, answeredToday: num(today), disputes: reports, bank, guard: { events, today: { requests: num(use, "requests"), writes: num(use, "writes") } } };
 }
 
 /** what the owner can do to one person; each one confirmed in the page first */
@@ -155,8 +167,19 @@ async function act(env: Env, id: string, action: string, body: Row | null) {
   if (action === "delete") {
     // everything that belongs to the person, then the person (no reliance on cascades)
     await d.batch([d.prepare("DELETE FROM expr_tasks WHERE session_id IN (SELECT id FROM expr_sessions WHERE user_id = ?)").bind(id)]
-      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(id)))
-      .concat(d.prepare("DELETE FROM codes WHERE email = (SELECT email FROM users WHERE id = ?)").bind(id), d.prepare("DELETE FROM users WHERE id = ?").bind(id)));
+      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(id)))
+      .concat(d.prepare("DELETE FROM codes WHERE email = (SELECT email FROM users WHERE id = ?)").bind(id), d.prepare("DELETE FROM mail WHERE email = (SELECT email FROM users WHERE id = ?)").bind(id), d.prepare("DELETE FROM users WHERE id = ?").bind(id)));
+    return json({ ok: true });
+  }
+  if (action === "block") {
+    // the owner's own account never: with ADMIN_OPEN "0" nobody could unblock it
+    const self = await one(env, "SELECT 1 n FROM users WHERE id = ? AND lower(email) = lower(?)", id, env.OWNER_EMAIL ?? "");
+    if (self) return fail(400, "the owner cannot be blocked");
+    await blockUser(env, id, "by the owner");
+    return json({ ok: true });
+  }
+  if (action === "unblock") {
+    await unblockUser(env, id);
     return json({ ok: true });
   }
   if (action === "note") {

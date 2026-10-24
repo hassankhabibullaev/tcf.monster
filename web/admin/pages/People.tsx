@@ -1,11 +1,11 @@
 // The admin's first page: how many people registered and how they use the app, then everyone, searchable and sortable.
 import { useEffect, useState } from "react";
-import { Icon, Seg, Empty, Button } from "../../ui/ui.tsx";
+import { Icon, Seg, Empty, Button, Chip } from "../../ui/ui.tsx";
 import { useApi, useLocation, setParams, linkProps, go, num, when, date, daysLeft } from "../lib.ts";
 
 export type PersonRow = {
   id: string; email: string; name: string | null; created_at: string; last_seen_at: string | null; target_nclc: number | null;
-  exam_date: string | null; answered: number; exams: number; expression: number;
+  exam_date: string | null; answered: number; exams: number; expression: number; blocked_at: string | null;
 };
 type Top = {
   people: number; joinedToday: number; joined7: number; joined30: number;
@@ -14,7 +14,7 @@ type Top = {
   today: string; joined: { d: string; n: number }[]; active: { d: string; n: number }[];
 };
 
-const FILTERS: [string, string][] = [["all", "All"], ["active", "Active 7 d"], ["new", "New 7 d"], ["exam", "Exam ahead"]];
+const FILTERS: [string, string][] = [["all", "All"], ["active", "Active 7 d"], ["new", "New 7 d"], ["exam", "Exam ahead"], ["blocked", "Blocked"]];
 const SORTS: [string, string][] = [["seen", "Last active"], ["joined", "Joined"], ["name", "Name"], ["exam", "Exam date"], ["practice", "Practice"], ["exams", "Exams"]];
 
 export function ExamDate({ d }: { d: string | null }) {
@@ -130,7 +130,7 @@ export function People() {
               <tbody>
                 {data.rows.map((p) => (
                   <tr key={p.id} className="click" onClick={() => go(`/people/${p.id}`)}>
-                    <td><a className="who" href={`/people/${p.id}`} onClick={(e) => { e.stopPropagation(); linkProps(`/people/${p.id}`).onClick(e); }}><strong>{p.name ?? "—"}</strong><span className="muted">{p.email}</span></a></td>
+                    <td><a className="who" href={`/people/${p.id}`} onClick={(e) => { e.stopPropagation(); linkProps(`/people/${p.id}`).onClick(e); }}><strong>{p.name ?? "—"}{p.blocked_at && <> <Chip tone="bad">blocked</Chip></>}</strong><span className="muted">{p.email}</span></a></td>
                     <td className="nowrap">{date(p.created_at)}</td>
                     <td className="nowrap">{when(p.last_seen_at)}</td>
                     <td className="nowrap">{p.target_nclc ? `NCLC ${p.target_nclc}` : "—"}</td>

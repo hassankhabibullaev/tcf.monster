@@ -71,7 +71,7 @@ async function walk(c = cookie) {
 }
 
 describe("starting", () => {
-  it("needs a mic mode and a free day (the key is the browser's to check); the paper follows the quotas; the owner may start again", async () => {
+  it("needs a mic mode (the key is the browser's to check); the paper follows the quotas; another may start once one ends", async () => {
     expect((await start(cookie, {})).status).toBe(400);
     expect((await start(cookie, { micMode: "loud" })).status).toBe(400);
     const r = await start();
@@ -91,19 +91,28 @@ describe("starting", () => {
     }
     // the topics: the newest month's combinaison and partie
     expect(JSON.parse(row(m.id).topics_json)).toEqual({ ee: 1, eo: { partId: 11, t2: 2, t3: 3 } });
-    // a second start: the running one comes back (409), and after it ends the day's cap holds for a person, not the owner
+    // a second start: the running one comes back (409); once it ends another may start the same day (no quota)
     expect((await start()).status).toBe(409);
     expect((await start()).data.error).toBe("running");
     expect((await qa.call(`/api/mock/${m.id}/abandon`, { body: {}, cookie })).status).toBe(200);
-    const capped = await start();
-    expect(capped.status).toBe(429);
-    expect(capped.data).toEqual({ error: "daily_cap" });
-    at(T0 + min(24 * 60 + 1));
-    expect((await start()).status).toBe(201);
+    const again = await start();
+    expect(again.status).toBe(201);
+    await qa.call(`/api/mock/${again.data.mock.id}/abandon`, { body: {}, cookie });
     at(T0);
     expect((await start(owner)).status).toBe(201);
     await qa.call(`/api/mock/${(await qa.call("/api/mock/running", { cookie: owner })).data.mock.id}/abandon`, { body: {}, cookie: owner });
     expect((await start(owner)).status).toBe(201);
+  });
+
+  it("reads the answer keys from R2's private folder: the site's files no longer carry them (scripts/copy-media.mjs)", async () => {
+    for (const s of ["co", "ce"]) {
+      const rows = (await (await keyAssets().fetch(`https://assets/data/key-${s}.json`)).json()) as Row[];
+      await qa.r2.put(`private/key-${s}.json`, JSON.stringify(rows.map((q) => ({ ...q, id: `r2-${q.id}` }))));
+    }
+    (qa.env as Row).ASSETS = { fetch: async () => new Response("not found", { status: 404 }) };
+    const r = await start();
+    expect(r.status).toBe(201);
+    expect(r.data.mock.paper.co.every((q: Row) => String(q.id).startsWith("r2-"))).toBe(true);
   });
 
   it("never repeats a question or a topic of a previous mock while there are fresh ones", async () => {

@@ -39,18 +39,12 @@ describe("starting", () => {
     expect(qa.count("SELECT COUNT(*) n FROM attempts WHERE finished_at IS NULL")).toBe(1);
   });
 
-  it("the seventh attempt of a rolling day is 429 daily_cap, whatever happened to the six", async () => {
-    for (let i = 1; i <= 6; i++) {
-      expect((await start("co", i)).status).toBe(201);
+  it("no daily quota: twelve exams in a row all start", async () => {
+    for (let i = 1; i <= 12; i++) {
+      expect((await start("co", i)).status, String(i)).toBe(201);
       await finish(i, i % 2 ? "done" : "abandon");
     }
-    const seventh = await start("ce", 7);
-    expect(seventh.status).toBe(429);
-    expect(seventh.data).toEqual({ error: "daily_cap" });
-    expect(qa.count("SELECT COUNT(*) n FROM attempts")).toBe(6);
-    // another person is not affected
-    const other = await qa.signUp("o@b.com");
-    expect((await start("ce", 7, {}, other)).status).toBe(201);
+    expect(qa.count("SELECT COUNT(*) n FROM attempts")).toBe(12);
   });
 
   it("exam 0, 41, 'abc', 1.5, true-as-1, a missing section, mode tampering: 400 and no row", async () => {
@@ -180,7 +174,7 @@ describe("deleting", () => {
     expect(gone.status).toBe(200);
     expect(gone.data).toEqual({ ok: true });
     expect(qa.count("SELECT COUNT(*) n FROM attempts")).toBe(0);
-    expect(qa.count("SELECT COALESCE(SUM(writes), 0) n FROM budget")).toBe(writes + 1);
+    expect(qa.count("SELECT COALESCE(SUM(writes), 0) n FROM budget")).toBe(writes + 2); // the delete, and the router's one per change
     const stats = (await qa.call("/api/me/stats", { cookie })).data;
     expect(stats.exams.co.taken).toBe(0);
     expect(stats.sections.co.n).toBe(0);

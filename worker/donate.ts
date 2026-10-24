@@ -67,6 +67,8 @@ export async function handleDonate(req: Request, env: Env): Promise<Response> {
   if (origin && origin !== new URL(req.url).origin && !allowedOrigin(origin)) return json({ error: "cross-site" }, 403, h);
   const ip = req.headers.get("cf-connecting-ip") ?? "?";
   if (!allow(ip)) return json({ error: "slow down" }, 429, h);
+  // the same address on every Cloudflare server at once (the count above is one server's)
+  if (ip !== "?" && env.AUTH_LIMIT && !(await env.AUTH_LIMIT.limit({ key: `donate:${ip}` })).success) return json({ error: "slow down" }, 429, h);
 
   const p = parse(await readJson<Body>(req));
   if (typeof p === "string") return json({ error: p }, 400, h);

@@ -55,13 +55,9 @@ describe("the key", () => {
 });
 
 describe("sessions", () => {
-  it("13 starts in a day: the 13th is 429 daily_cap; the budget hold is 503", async () => {
-    for (let i = 0; i < 12; i++) expect((await post("/start", { section: "ee", kind: "practice", taches: [1] })).status, String(i)).toBe(200);
-    const r = await post("/start", { section: "ee", kind: "practice", taches: [1] });
-    expect(r.status).toBe(429);
-    expect(r.data).toEqual({ error: "daily_cap" });
-    expect(qa.count("SELECT COUNT(*) n FROM expr_sessions")).toBe(12);
-    qa.raw.prepare("UPDATE expr_sessions SET started_at = '2020-01-01'").run();
+  it("no daily quota (20 starts in a day all go); the budget hold is 503", async () => {
+    for (let i = 0; i < 20; i++) expect((await post("/start", { section: "ee", kind: "practice", taches: [1] })).status, String(i)).toBe(200);
+    expect(qa.count("SELECT COUNT(*) n FROM expr_sessions")).toBe(20);
     qa.raw.prepare("UPDATE budget SET writes = 60000").run();
     expect((await post("/start", { section: "eo", kind: "exam" })).data).toEqual({ error: "hold" });
   });

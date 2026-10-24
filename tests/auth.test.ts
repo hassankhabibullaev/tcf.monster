@@ -309,3 +309,78 @@ describe("admin, once sign-in exists", () => {
     expect((await call("/admin/overview", undefined, { host: "tcf.monster" })).status).toBe(404);
   });
 });
+
+describe("hardening (2026-10-24)", () => {
+  it("an unknown address signing in by code hears what an address with no code waiting hears", async () => {
+    await signUp("tester@example.com");
+    const unknown = await call("/auth/signin-code", { email: "nobody@example.com", code: "123456" });
+    const noCode = await call("/auth/signin-code", { email: "tester@example.com", code: "123456" });
+    expect([unknown.status, unknown.data]).toEqual([noCode.status, noCode.data]);
+  });
+
+  it("ten codes a day per address, whatever the hour", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const t0 = Date.parse("2026-10-24T00:00:00Z");
+    for (let i = 0; i < 10; i++) {
+      vi.setSystemTime(t0 + i * 61 * 60_000); // a new hour each time: the hourly limit never bites
+      expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).status).toBe(200);
+    }
+    vi.setSystemTime(t0 + 10 * 61 * 60_000);
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).data.error).toBe("too_many");
+    // the nightly cleanup does not wipe the day's count with the expired code
+    const { JOBS } = await import("../worker/jobs.ts");
+    await JOBS.cleanup.run(env);
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).data.error).toBe("too_many");
+    vi.setSystemTime(t0 + 25 * 3600_000);
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).status).toBe(200);
+  });
+
+  it("a sign-in ends 90 days after it began even when used every day; the owner's after 14", async () => {
+    Object.assign(env, { OWNER_EMAIL: "owner@example.com", TESTERS: "tester@example.com,owner@example.com" });
+    const c = await signUp("tester@example.com");
+    const o = await signUp("owner@example.com");
+    const old = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+    raw.prepare("UPDATE sessions SET created_at = ?").run(old(15));
+    expect((await call("/me", undefined, { cookie: c })).status).toBe(200);
+    expect((await call("/me", undefined, { cookie: o })).status).toBe(401);
+    raw.prepare("UPDATE sessions SET created_at = ?").run(old(91));
+    expect((await call("/me", undefined, { cookie: c })).status).toBe(401);
+  });
+
+  it("no pepper on the server: no password is stored or checked (fails closed)", async () => {
+    Object.assign(env, { PASSWORD_PEPPER: "", LOCAL_DEV: "" });
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).status).toBe(200);
+    const v = await call("/auth/verify", { email: "tester@example.com", code: lastCode() });
+    const p = await call("/auth/password", { email: "tester@example.com", proof: v.data.proof, password: PW, terms: true });
+    expect(p.status).toBe(500);
+    expect(count("SELECT COUNT(*) n FROM users")).toBe(0);
+  });
+
+  it("guesses sent all at once still get five tries in all; the right code after them is refused", async () => {
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).status).toBe(200);
+    const right = lastCode();
+    const wrong = String((Number(right) + 1) % 1_000_000).padStart(6, "0");
+    const answers = await Promise.all(Array.from({ length: 20 }, () => call("/auth/verify", { email: "tester@example.com", code: wrong })));
+    expect(answers.filter((r) => r.data.error === "wrong").length).toBe(4);
+    expect((await call("/auth/verify", { email: "tester@example.com", code: right })).data.error).toBe("expired");
+  });
+
+  it("a proof sent twice at once makes one account", async () => {
+    expect((await call("/auth/code", { email: "tester@example.com", lang: "en" })).status).toBe(200);
+    const v = await call("/auth/verify", { email: "tester@example.com", code: lastCode() });
+    const both = await Promise.all([PW, PW2].map((pw) => call("/auth/password", { email: "tester@example.com", proof: v.data.proof, password: pw, terms: true })));
+    expect(both.map((r) => r.status).sort()).toEqual([200, 400]);
+    expect(count("SELECT COUNT(*) n FROM users")).toBe(1);
+  });
+
+  it("the nightly backup carries no password hash", async () => {
+    await signUp("tester@example.com");
+    const { backup } = await import("../worker/backup.ts");
+    await backup(env);
+    const list = await env.FILES.list({ prefix: "backups/" });
+    const users = list.objects.find((o) => o.key.includes("/users-"))!;
+    const rows = JSON.parse(await (await env.FILES.get(users.key))!.text());
+    expect(rows[0].email).toBe("tester@example.com");
+    expect("password" in rows[0]).toBe(false);
+  });
+});

@@ -257,7 +257,7 @@ describe("jobs", () => {
     expect(days.has("2026-01-30") && days.has("2026-01-31")).toBe(true);
     expect(keys.some((k) => k.includes("/topics-"))).toBe(false); // fetched again by the weekly sync
     expect(raw.prepare("SELECT name, ok FROM jobs").get()).toEqual({ name: "backup", ok: 1 });
-    expect(count("SELECT COUNT(*) n FROM job_log")).toBe(1);
+    expect(count("SELECT COUNT(*) n FROM job_log")).toBe(2); // « started », then the run
   });
 
   it("cleanup removes expired sign-ins and codes only", async () => {

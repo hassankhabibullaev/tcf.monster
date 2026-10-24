@@ -1,18 +1,17 @@
 // CO/CE exam attempts (docs/COCE.md §3). The attempt lives here: the deadline is the server's clock, the answers
 // come in small PATCHes while the exam runs, and the score is computed on the server from the exam's own file
 // (public/data/exam-<section>-<NN>.json, read through ASSETS: static, no database). A person sees only their own rows.
-import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD } from "../util.ts";
+import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD, claimStart, releaseStart, readJson } from "../util.ts";
 import type { Me } from "../auth.ts";
 import { type Level, type Section, LEVELS, POINTS } from "../../shared/progress.ts";
 import reference from "../sim/exam-reference.json" with { type: "json" };
 import { runningMock, toMockRow } from "../mock/row.ts";
+import { guardAmount } from "../guard.ts";
 
 /** minutes allowed */
 export const DURATION_MIN: Record<Section, number> = { co: 35, ce: 60 };
 /** exams in the bank (exam-co-01 … exam-co-40) */
 export const EXAMS = 40;
-/** attempts one person may start in a rolling day (free plan: keeps one heavy user from eating the shared budget) */
-const ATTEMPTS_PER_DAY = 6;
 /** answers are still taken this long after the deadline (the browser's last PATCH on the way) */
 const GRACE_MS = 120_000;
 /** rows the list gives at most */
@@ -94,7 +93,22 @@ export function scoreAnswers(section: Section, questions: ExamQuestion[], answer
 }
 
 /** the exam's file, as the Content piece exports it; null when it is missing or is not the file (a page, say) */
-async function loadExam(env: Env, section: Section, exam: number): Promise<ExamQuestion[] | null> {
+/** an exam file read once per server (the 80 files never change between deploys): only what scoring needs is kept */
+const examsOf = new WeakMap<object, Map<string, Promise<ExamQuestion[] | null>>>();
+function loadExam(env: Env, section: Section, exam: number): Promise<ExamQuestion[] | null> {
+  // kept per set of built files (one in production; each test brings its own)
+  let exams = examsOf.get(env.ASSETS);
+  if (!exams) { exams = new Map(); examsOf.set(env.ASSETS, exams); }
+  const k = `${section}-${exam}`;
+  let p = exams.get(k);
+  if (!p) {
+    p = readExam(env, section, exam).then((q) => q?.map(({ placement, level, answer }) => ({ placement, level, answer }) as ExamQuestion) ?? null);
+    p.then((q) => { if (!q) exams!.delete(k); });
+    exams.set(k, p);
+  }
+  return p;
+}
+async function readExam(env: Env, section: Section, exam: number): Promise<ExamQuestion[] | null> {
   try {
     const r = await env.ASSETS.fetch(new Request(`https://assets/data/exam-${section}-${String(exam).padStart(2, "0")}.json`));
     if (!r.ok) return null;
@@ -172,7 +186,7 @@ export async function finalizeStale(env: Env): Promise<number> {
   const cutoff = new Date(Date.now() - GRACE_MS).toISOString();
   // only the newest 20 000 attempts are looked at (a range of ids: the rows read stay bounded however large the table
   // grows); an older one still running is closed the next time its owner opens the app (GET /me asks what runs)
-  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM attempts WHERE id > (SELECT COALESCE(MAX(id), 0) FROM attempts) - 20000 AND finished_at IS NULL AND deadline_at < ?`).bind(cutoff).all<Row>();
+  const { results } = await env.DB.prepare(`SELECT ${COLS} FROM attempts WHERE id > (SELECT COALESCE(MAX(id), 0) FROM attempts) - 20000 AND finished_at IS NULL AND deadline_at < ? LIMIT 200`).bind(cutoff).all<Row>();
   if (!results.length) return 0;
   const at = nowIso();
   const stmts: D1PreparedStatement[] = [];
@@ -187,7 +201,7 @@ export async function finalizeStale(env: Env): Promise<number> {
 /* ---------- routes ---------- */
 
 type Body = Record<string, unknown>;
-const readBody = async (req: Request): Promise<Body> => { try { const b = await req.json(); return b && typeof b === "object" ? (b as Body) : {}; } catch { return {}; } };
+const readBody = async (req: Request): Promise<Body> => { const b = await readJson<Body>(req); return b && typeof b === "object" ? b : {}; };
 
 export async function handleAttempts(req: Request, env: Env, me: Me, path: string, url: URL): Promise<Response> {
   const post = req.method === "POST";
@@ -215,23 +229,23 @@ export async function handleAttempts(req: Request, env: Env, me: Me, path: strin
     // never while a mock exam runs (docs/MOCK-EXAM.md §7)
     const mock = await runningMock(env, me.id);
     if (mock) return json({ error: "mock_running", mock: toMockRow(mock) }, 409);
-    const [spent, mine] = await Promise.all([
-      env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>(),
-      env.DB.prepare("SELECT COUNT(*) n FROM attempts WHERE user_id = ? AND started_at >= ?").bind(me.id, daysAgoIso(1)).first<{ n: number }>(),
-    ]);
+    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
     if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
-    if ((mine?.n ?? 0) >= ATTEMPTS_PER_DAY) return json({ error: "daily_cap" }, 429);
+    const { row: slot, today } = await claimStart(env, me.id, "attempt");
+    const stopped = await guardAmount(env, me, "starts", today);
+    if (stopped) { await releaseStart(env, slot); return stopped; }
     const startedAt = new Date();
     const deadlineAt = new Date(startedAt.getTime() + DURATION_MIN[section] * 60_000);
     const r = await env.DB.prepare("INSERT INTO attempts (user_id, section, exam, mode, started_at, deadline_at) VALUES (?, ?, ?, ?, ?, ?)")
       .bind(me.id, section, exam, mode, startedAt.toISOString(), deadlineAt.toISOString()).run();
-    await addWrites(env, 1);
+    await addWrites(env, 2);
     // read back the oldest live attempt of the person: ours, unless a second start slipped in between the check above
     // and the insert (a double tap, two tabs): then the older one stands and this row is taken back
     const live = await env.DB.prepare(`SELECT ${COLS} FROM attempts WHERE user_id = ? AND finished_at IS NULL AND deadline_at >= ? ORDER BY id LIMIT 1`)
       .bind(me.id, new Date(Date.now() - GRACE_MS).toISOString()).first<Row>();
     if (live && live.id !== r.meta.last_row_id) {
       await env.DB.prepare("DELETE FROM attempts WHERE id = ? AND finished_at IS NULL").bind(r.meta.last_row_id).run();
+      await releaseStart(env, slot);
       return json({ running: toAttempt(live) }, 409);
     }
     const row = live ?? (await env.DB.prepare(`SELECT ${COLS} FROM attempts WHERE id = ?`).bind(r.meta.last_row_id).first<Row>());

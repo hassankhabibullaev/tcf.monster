@@ -1,6 +1,8 @@
-// /media/* — the recordings and pictures of the question bank, read from R2 (bucket FILES, keys media/<co|ce>/<file>).
-// Public (practice material, unguessable names), cached for a year (a changed file gets a new name), Range honoured
-// so the player can seek. GET and HEAD only; everything else is a plain 404 / 405.
+// /media/* — the recordings and pictures of the question bank. On Cloudflare they are plain files (dist/media, under
+// names only the signed-in bank files carry: scripts/copy-media.mjs) served before the Worker runs; a name that reaches
+// the Worker is not one of them (an old, guessable name included) and is a 404. On this Mac (LOCAL_DEV) the build keeps
+// the export's names and the recordings are read from R2's local folder (.dev/files/media/<co|ce>/<file>), Range
+// honoured so the player can seek. GET and HEAD only; everything else is a plain 404 / 405.
 import type { Env } from "./util.ts";
 
 /** a key as the uploader writes them: a short name, no slash, no dot segment (R2 refuses anything past 1 024 bytes) */
@@ -47,7 +49,10 @@ function headers(key: string, obj: R2Object) {
 
 export async function handleMedia(req: Request, env: Env, key: string): Promise<Response> {
   if (req.method !== "GET" && req.method !== "HEAD") return plain(405, "method not allowed", { allow: "GET, HEAD" });
-  if (!KEY.test(key)) return plain(404, "not found");
+  if (!KEY.test(key) || env.LOCAL_DEV !== "1") return plain(404, "not found");
+  // this Mac after a full build: the hidden names are files beside the pages, as on Cloudflare
+  const built = await env.ASSETS?.fetch(new Request(new URL(`/${key}`, "https://assets"), { method: req.method, headers: req.headers.has("range") ? { range: req.headers.get("range")! } : {} })).catch(() => null);
+  if (built?.ok) return built;
 
   if (req.method === "HEAD") {
     const head = await env.FILES.head(key).catch(() => null);

@@ -5,9 +5,9 @@
 //   tcf.monster/about     the public site, always (the app's wordmark leads there)
 //   /terms /privacy /thanks  the site's pages; any other address is the application
 //   app.tcf.monster, www.tcf.monster  the same path on tcf.monster, for good (301; 308 for a write)
-import { type Env, fail, json } from "./util.ts";
+import { type Env, fail, json, day, BUDGET_HOLD, addWrites } from "./util.ts";
 import { handleAdmin } from "./admin.ts";
-import { handleAuth, currentUser } from "./auth.ts";
+import { handleAuth, currentUser, type Me } from "./auth.ts";
 import { handleMe } from "./me.ts";
 import { handleStats } from "./stats.ts";
 import { handleMedia } from "./media.ts";
@@ -15,10 +15,14 @@ import { handleDonate } from "./donate.ts";
 import { handleProgress, handleSync } from "./coce/progress.ts";
 import { handleAttempts } from "./coce/attempts.ts";
 import { handleDisputes } from "./coce/disputes.ts";
+import { handleData } from "./coce/guard.ts";
+import { guardRequest } from "./guard.ts";
 import { handleExpr, handleKey } from "./expr.ts";
 import { handleMock } from "./mock/index.ts";
 import { handleTopics } from "./content.ts";
 import { runJob } from "./jobs.ts";
+import { BACKED_UP } from "./backup.ts";
+import { pepper, same } from "./auth.ts";
 import { handleStop } from "./news.ts";
 
 /** the one address of the application and the public site */
@@ -30,7 +34,7 @@ const SECURITY: Record<string, string> = {
   "referrer-policy": "same-origin",
   "permissions-policy": "camera=(), geolocation=()",
   // once on https, the browser never tries http again for a year (the sign-in needs https)
-  "strict-transport-security": "max-age=31536000",
+  "strict-transport-security": "max-age=63072000; includeSubDomains",
 };
 
 function withHeaders(res: Response, extra: Record<string, string> = {}) {
@@ -45,6 +49,14 @@ function withHeaders(res: Response, extra: Record<string, string> = {}) {
 export const door = (host: string): "app" | "admin" | "moved" =>
   host.startsWith("admin.") ? "admin" : host === "app.tcf.monster" || host === "www.tcf.monster" ? "moved" : "app";
 
+/** /.well-known/security.txt: renew `Expires` before October 2027 */
+const SECURITY_TXT = `Contact: mailto:bonjour@tcf.monster
+Expires: 2027-10-24T00:00:00.000Z
+Policy: https://github.com/hassankhabibullaev/tcf.monster/blob/main/SECURITY.md
+Preferred-Languages: en, fr
+Canonical: https://tcf.monster/.well-known/security.txt
+`;
+
 /** the public site's pages (dist/site/), by address; `/` only for a visitor */
 const SITE_PAGES: Record<string, string> = { "/about": "/site/", "/terms": "/site/terms", "/privacy": "/site/privacy", "/thanks": "/site/thanks", "/robots.txt": "/site/robots.txt" };
 /** the site's old French addresses, still in e-mails and bookmarks */
@@ -57,6 +69,19 @@ async function sitePage(req: Request, env: Env, url: URL, file: string, signedIn
   if (!signedIn || !(res.headers.get("content-type") ?? "").includes("text/html")) return withHeaders(res, extra);
   const html = (await res.text()).replace(/<html([^>]*)>/, "<html$1 data-signed-in>");
   return withHeaders(new Response(html, { status: res.status, headers: res.headers }), extra);
+}
+
+/** a path as a file server may read it: decoded (until it no longer changes), slashes folded, dot segments resolved */
+function canonical(path: string) {
+  let p = path;
+  for (let i = 0; i < 3; i++) {
+    let d: string;
+    try { d = decodeURIComponent(p); } catch { break; }
+    if (d === p) break;
+    p = d;
+  }
+  p = p.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  try { return new URL(p, "https://x").pathname.replace(/\/{2,}/g, "/"); } catch { return p; }
 }
 
 /** a change must come from our own pages: the browser's Origin header, when sent, names this address */
@@ -78,41 +103,75 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
   if (path === "/me" || path.startsWith("/me/") || path.startsWith("/expr/") || path === "/topics" || path === "/progress" || path === "/sync" || path === "/disputes" || path === "/attempts" || path.startsWith("/attempts/") || path === "/mock" || path.startsWith("/mock/")) {
     const me = await currentUser(env, req);
     if (!me) return fail(401, "signed out");
-    if (path === "/topics") return handleTopics(req, env, url);
-    if (path === "/progress") return handleProgress(req, env, me, url);
+    // pace and volume far beyond a person: the human check, then a block (worker/guard.ts)
+    const stopped = await guardRequest(req, env, me, writes(req.method));
+    if (stopped) return stopped;
+    // past the day's hold line nothing new starts (exams, sessions, mocks, reports); what already runs goes on to its
+    // end and its marks, and /sync answers { hold } itself (the browser keeps its queue)
+    if (req.method === "POST" && STARTS.has(path)) {
+      const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
+      if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
+    }
     if (path === "/sync") return handleSync(req, env, me);
-    if (path === "/disputes") return handleDisputes(req, env, me, url);
-    if (path === "/attempts" || path.startsWith("/attempts/")) return handleAttempts(req, env, me, path, url);
-    if (path === "/me/key") return handleKey(req, env, me);
-    if (path === "/me/stats" && req.method === "GET") return handleStats(env, me);
-    if (path === "/me" && req.method === "GET" && url.searchParams.has("with")) return withBundle(req, env, url, await handleMe(req, env, me, path));
-    if (path.startsWith("/expr/")) return handleExpr(req, env, me, path, url);
-    if (path === "/mock" || path.startsWith("/mock/")) return handleMock(req, env, me, path, url);
-    return handleMe(req, env, me, path);
+    const res = await signedIn(req, env, url, path, me);
+    // every change counts toward the day's hold line (an estimate: some write a few rows, some none)
+    if (writes(req.method) && res.ok) await addWrites(env, 1);
+    return res;
   }
   return fail(404, "not found");
+}
+
+/** the POSTs that start something new: refused past the day's hold line */
+const STARTS = new Set(["/attempts", "/expr/start", "/mock", "/disputes"]);
+
+/** the routes of a signed-in person, after the checks above */
+async function signedIn(req: Request, env: Env, url: URL, path: string, me: Me): Promise<Response> {
+  if (path === "/topics") return handleTopics(req, env, url);
+  if (path === "/progress") return handleProgress(req, env, me, url);
+  if (path === "/disputes") return handleDisputes(req, env, me, url);
+  if (path === "/attempts" || path.startsWith("/attempts/")) return handleAttempts(req, env, me, path, url);
+  if (path === "/me/key") return handleKey(req, env, me);
+  if (path === "/me/stats" && req.method === "GET") return handleStats(env, me);
+  if (path === "/me" && req.method === "GET" && url.searchParams.has("with")) return withBundle(req, env, url, me, await handleMe(req, env, me, path));
+  if (path.startsWith("/expr/")) return handleExpr(req, env, me, path, url);
+  if (path === "/mock" || path.startsWith("/mock/")) return handleMock(req, env, me, path, url);
+  return handleMe(req, env, me, path);
 }
 
 /** the reads GET /me may bring along (?with=a,b): the browser asks once for what it lacks instead of once per screen */
 // the dashboard's numbers stay out: they read the whole history (CPU: the free plan allows 10 ms a request)
 const BUNDLE = new Set(["/attempts?section=co", "/attempts?section=ce", "/progress?section=co", "/progress?section=ce", "/expr/sessions", "/mock/list"]);
-async function withBundle(req: Request, env: Env, url: URL, base: Response): Promise<Response> {
+async function withBundle(req: Request, env: Env, url: URL, me: Me, base: Response): Promise<Response> {
   if (!base.ok) return base;
   const profile = (await base.json()) as Record<string, unknown>;
   const want = (url.searchParams.get("with") ?? "").split(",").filter((k) => BUNDLE.has(k)).slice(0, BUNDLE.size);
   const extra: Record<string, unknown> = {};
   for (const k of want) {
-    // each read through its own route (same checks, same answer), with this request's sign-in
+    // each read through its own route (same answer), for the person this request already found and checked: one
+    // sign-in read and one pass through the guard for the whole bundle
     const sub = new Request(new URL(`/api${k}`, url), { headers: { cookie: req.headers.get("cookie") ?? "" } });
-    const r = await api(sub, env, new URL(sub.url)).catch(() => null);
+    const subUrl = new URL(sub.url);
+    const r = await signedIn(sub, env, subUrl, subUrl.pathname.slice(4), me).catch(() => null);
     if (r?.ok) extra[k] = await r.json().catch(() => null);
   }
   return json({ ...profile, extra });
 }
 
+/** the nightly run's own calls: signed with the pepper, so no visitor can start a job */
+async function jobKey(env: Env) {
+  const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(pepper(env)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return [...new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode("tcf.monster nightly job")))].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
+    if (url.pathname.startsWith("/__job/")) {
+      const given = req.headers.get("x-job") ?? "";
+      if (req.method !== "POST" || !given || !same(given, await jobKey(env))) return fail(404, "not found");
+      const r = await runJob(env, url.pathname.slice(7));
+      return json(r, r.ok ? 200 : 500);
+    }
     // plain http is never served: the password is stretched with the browser's crypto, which only exists on https
     // (an http page threw « TypeError » at sign-in); a GET moves for good, a write keeps its method (308)
     if (url.protocol === "http:" && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/.test(url.hostname)) {
@@ -134,9 +193,15 @@ export default {
       }
       return withHeaders(res, { "x-robots-tag": "noindex", ...(res.headers.has("cache-control") ? {} : { "cache-control": "no-store" }) });
     }
-    // recordings and pictures of the question bank, from R2, cached for a year (their names never change)
+    // the question bank's folders under any other spelling (/%64ata/…, //data/…, /DATA/…) are not files: the asset
+    // server would decode them and hand the bank out past the guard
+    if (!url.pathname.startsWith("/data/") && !url.pathname.startsWith("/media/") && /^\/(data|media)(\/|$)/i.test(canonical(url.pathname))) return fail(404, "not found");
+    // the question bank: recordings and pictures from R2, the files from the built pages; signed-in people only
     if (url.pathname.startsWith("/media/")) return which === "app" ? handleMedia(req, env, url.pathname.slice(1)) : fail(404, "not found");
+    if (url.pathname.startsWith("/data/")) return withHeaders(await handleData(req, env, url, which === "admin"), { "x-robots-tag": "noindex" });
     const path = url.pathname.replace(/\/+$/, "") || "/";
+    // how to report a security problem (RFC 9116), on every address
+    if (path === "/.well-known/security.txt") return new Response(SECURITY_TXT, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" } });
     if (which === "app") {
       if (MOVED[path]) return Response.redirect(new URL(MOVED[path] + url.search, url).toString(), 301);
       // the public site: its own pages, and `/` for whoever is not signed in (one session read, only on these pages)
@@ -157,12 +222,16 @@ export default {
     // One nightly run, 22:00 UTC = 03:00 in Tashkent (the free plan's 5 schedules are shared by the whole account):
     // the welcome and exam mails, cleanup, on Monday nights the topics sync, and the backup last: it is the one that
     // grows with the number of people, and a run cut short must not take the others with it.
+    // Each job is its own call to this Worker (the SELF binding): its own CPU time on the free plan, so one heavy job
+    // cannot cut the next short. The backup goes a table a call.
     const monday = new Intl.DateTimeFormat("en-US", { timeZone: env.APP_TZ, weekday: "short" }).format(new Date()) === "Mon";
+    const names = ["mails", "cleanup", ...(monday ? ["topics"] : []), ...BACKED_UP.map((t) => `backup:${t}`), "backup:prune"];
     ctx.waitUntil((async () => {
-      await runJob(env, "mails");
-      await runJob(env, "cleanup");
-      if (monday) await runJob(env, "topics");
-      await runJob(env, "backup");
+      const key = await jobKey(env);
+      for (const name of names) {
+        if (env.SELF) await env.SELF.fetch(new Request(`https://jobs.tcf.monster/__job/${name}`, { method: "POST", headers: { "x-job": key } })).catch((e) => console.error("job", name, e));
+        else await runJob(env, name);
+      }
     })());
   },
 };

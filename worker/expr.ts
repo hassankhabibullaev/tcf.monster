@@ -2,7 +2,7 @@
 // runs inside the simulator's request context (worker/sim/ctx.ts): the signed-in person and their language. The
 // person's key, what they write and say, and the corrections stay in their browser (web/app/sim/browser-score.ts,
 // work.ts): the server holds the sessions, the subjects and the marks, and never calls Google.
-import { type Env, json, fail, nowIso, readJson, day, daysAgoIso, addWrites, BUDGET_HOLD } from "./util.ts";
+import { type Env, json, fail, nowIso, readJson, day, daysAgoIso, addWrites, BUDGET_HOLD, claimStart, releaseStart } from "./util.ts";
 
 import type { Me } from "./auth.ts";
 import { runningMock, toMockRow } from "./mock/row.ts";
@@ -14,9 +14,8 @@ import {
 } from "./sim/index.ts";
 import { ctx } from "./sim/ctx.ts";
 import { askedFrom } from "../shared/sim/asked-core.ts";
+import { guardAmount } from "./guard.ts";
 
-/** sessions one person may start in a rolling day (free plan: keeps one heavy user from eating the shared budget) */
-const SESSIONS_PER_DAY = 12;
 
 type Body = Record<string, unknown>;
 type TaskNo = 1 | 2 | 3;
@@ -82,17 +81,16 @@ async function route(req: Request, env: Env, me: Me, path: string, url: URL): Pr
     const ids: Partial<Record<TaskNo, number>> = {};
     if (b.topicIds && typeof b.topicIds === "object") for (const [k, v] of Object.entries(b.topicIds as Record<string, unknown>)) if ([1, 2, 3].includes(Number(k)) && Number.isInteger(Number(v))) ids[Number(k) as TaskNo] = Number(v);
     // free-plan guard: the day's write budget (shared with progress) and a per-person cap on sessions
-    const [spent, mine] = await Promise.all([
-      env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>(),
-      env.DB.prepare("SELECT COUNT(*) n FROM expr_sessions WHERE user_id = ? AND started_at >= ?").bind(me.id, daysAgoIso(1)).first<{ n: number }>(),
-    ]);
+    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
     if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
-    if ((mine?.n ?? 0) >= SESSIONS_PER_DAY) return json({ error: "daily_cap" }, 429);
     // never while a mock exam runs (docs/MOCK-EXAM.md §7)
     const mock = await runningMock(env, me.id);
     if (mock) return json({ error: "mock_running", mock: toMockRow(mock) }, 409);
-    const started = await startSession({ section, kind, taches: kind === "exam" ? [1, 2, 3] : b.taches, topicIds: ids, mode });
-    await addWrites(env, 1 + started.tasks.length);
+    const { row: slot, today } = await claimStart(env, me.id, "session");
+    const stopped = await guardAmount(env, me, "starts", today);
+    if (stopped) { await releaseStart(env, slot); return stopped; }
+    const started = await startSession({ section, kind, taches: kind === "exam" ? [1, 2, 3] : b.taches, topicIds: ids, mode }).catch(async (e) => { await releaseStart(env, slot); throw e; });
+    await addWrites(env, 2 + started.tasks.length);
     return json(started);
   }
   // marks computed in the browser (worker/sim/results.ts checks them and keeps the numbers only)

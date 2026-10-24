@@ -4,8 +4,10 @@
 // results are computed when the four exist. Every route runs inside the simulator's request context (the person,
 // their language). A mock needs a working Gemini key; the key lives in the person's browser, which checks it before
 // a sitting opens (web/app/mock/MockPage.tsx).
-import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD, readJson } from "../util.ts";
+import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD, readJson, claimStart, releaseStart } from "../util.ts";
 import type { Me } from "../auth.ts";
+import { isOwnerEmail } from "../access.ts";
+import { guardAmount } from "../guard.ts";
 import { access } from "../expr.ts";
 import { withCtx, startSession, abandonSession, forgetSession, NotFoundError, AiError, aiErrorResponse } from "../sim/index.ts";
 import { all, one } from "../sim/db.ts";
@@ -27,7 +29,7 @@ const STALE_MS = 12 * 3600_000;
 
 type Body = Record<string, unknown>;
 const isKey = (v: unknown): v is Answer => v === "A" || v === "B" || v === "C" || v === "D" || v === "-";
-const owner = (env: Env, me: Me) => me.email.toLowerCase() === env.OWNER_EMAIL.toLowerCase() || env.ADMIN_OPEN === "1";
+const owner = (env: Env, me: Me) => isOwnerEmail(env, me.email) || env.ADMIN_OPEN === "1";
 
 const select = (env: Env, id: number, userId?: string) =>
   userId == null
@@ -36,11 +38,19 @@ const select = (env: Env, id: number, userId?: string) =>
 
 /* ---------- the key files ---------- */
 
+/** the answer keys live in R2 under private/ (scripts/upload-keys.mjs at each deploy), never among the site's files;
+ *  this Mac's build still has them beside the pages, read when R2 has none */
 async function loadKey(env: Env, section: "co" | "ce"): Promise<KeyRow[] | null> {
   try {
-    const r = await env.ASSETS.fetch(new Request(`https://assets/data/key-${section}.json`));
-    if (!r.ok) return null;
-    const rows = (await r.json()) as Partial<KeyRow>[];
+    const obj = await env.FILES.get(`private/key-${section}.json`);
+    let text: string;
+    if (obj) text = await obj.text();
+    else {
+      const r = await env.ASSETS.fetch(new Request(`https://assets/data/key-${section}.json`));
+      if (!r.ok) return null;
+      text = await r.text();
+    }
+    const rows = JSON.parse(text) as Partial<KeyRow>[];
     if (!Array.isArray(rows) || !rows.length) return null;
     return rows.filter((q): q is KeyRow => typeof q.id === "string" && typeof q.level === "string" && isKey(q.answer) && (q.answer as string) !== "-");
   } catch { return null; }
@@ -148,7 +158,8 @@ async function abandon(env: Env, row: Row, how: Ended = "abandon"): Promise<Row>
 
 /** the nightly job: sittings nobody moved for twelve hours are abandoned as `stale`; markings never finished are closed with what exists */
 export async function finalizeStaleMocks(env: Env): Promise<number> {
-  const { results: rows } = await env.DB.prepare(`SELECT ${COLS} FROM mocks WHERE finished_at IS NULL`).all<Row>();
+  // a bounded batch a night (an abandoned mock left over closes the next night, or when its owner comes back)
+  const { results: rows } = await env.DB.prepare(`SELECT ${COLS} FROM mocks WHERE finished_at IS NULL LIMIT 100`).all<Row>();
   let n = 0;
   for (const row of rows) {
     const last = Math.max(Date.parse(row.started_at), Date.parse(row.stage_started_at ?? "") || 0, Date.parse(row.break_until ?? "") || 0);
@@ -197,15 +208,14 @@ async function route(req: Request, env: Env, me: Me, path: string, url: URL): Pr
     if (attempt) return json({ error: "attempt_running", attempt }, 409);
     const session = await env.DB.prepare("SELECT id, section FROM expr_sessions WHERE user_id = ? AND status = 'in_progress' AND mock_id IS NULL AND started_at >= ? ORDER BY started_at DESC LIMIT 1").bind(me.id, new Date(Date.now() - SESSION_BLOCK_MS).toISOString()).first<{ id: string; section: string }>();
     if (session) return json({ error: "session_running", session }, 409);
-    const [spent, mine] = await Promise.all([
-      env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>(),
-      env.DB.prepare("SELECT COUNT(*) n FROM mocks WHERE user_id = ? AND started_at >= ?").bind(me.id, daysAgoIso(1)).first<{ n: number }>(),
-    ]);
+    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
     if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
-    if ((mine?.n ?? 0) >= 1 && !owner(env, me)) return json({ error: "daily_cap" }, 429);
+    const { row: slot, today } = await claimStart(env, me.id, "mock");
+    const stopped = await guardAmount(env, me, "starts", today);
+    if (stopped) { await releaseStart(env, slot); return stopped; }
     // the paper: the whole bank by the quotas, never a question of a previous mock while there are fresh ones
     const [keyCo, keyCe, previous] = await Promise.all([loadKey(env, "co"), loadKey(env, "ce"), env.DB.prepare("SELECT paper_json, topics_json FROM mocks WHERE user_id = ? ORDER BY started_at").bind(me.id).all<{ paper_json: string; topics_json: string }>()]);
-    if (!keyCo || !keyCe) return json({ error: "bank" }, 500);
+    if (!keyCo || !keyCe) { await releaseStart(env, slot); return json({ error: "bank" }, 500); }
     const papers = previous.results.map((r) => { const p = parse<Partial<Paper>>(r.paper_json, {}); return { co: p.co ?? [], ce: p.ce ?? [] }; });
     const paper: Paper = { co: buildPaper(keyCo, seenOf(papers, "co")), ce: buildPaper(keyCe, seenOf(papers, "ce")) };
     const had = previous.results.map((r) => parse<Partial<Topics>>(r.topics_json, {}));
@@ -220,6 +230,7 @@ async function route(req: Request, env: Env, me: Me, path: string, url: URL): Pr
     const live = await env.DB.prepare(`SELECT ${COLS} FROM mocks WHERE user_id = ? AND finished_at IS NULL ORDER BY id LIMIT 1`).bind(me.id).first<Row>();
     if (live && live.id !== r.meta.last_row_id) {
       await env.DB.prepare("DELETE FROM mocks WHERE id = ? AND finished_at IS NULL").bind(r.meta.last_row_id).run();
+      await releaseStart(env, slot);
       return json({ error: "running", mock: toMockRow(live) }, 409);
     }
     return json({ mock: toMock(live ?? (await select(env, Number(r.meta.last_row_id)))!) }, 201);

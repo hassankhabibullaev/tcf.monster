@@ -1,4 +1,5 @@
-// The question bank as the browser sees it: static files under /data/ (docs/COCE.md §1), each fetched once per visit.
+// The question bank as the browser sees it: files under /data/ for a signed-in person (docs/COCE.md §1), each fetched
+// once per visit.
 import type { Level } from "../../../shared/progress.ts";
 
 export type Section = "co" | "ce";
@@ -37,10 +38,17 @@ export type BankIndex = {
 
 const cache = new Map<string, Promise<unknown>>();
 
+/** the guard's human check, if asked, is answered around fetch itself (web/app/guard-fetch.ts) */
+const get = (path: string) => fetch(path, { credentials: "same-origin" });
+
 function load<T>(path: string): Promise<T> {
   let p = cache.get(path) as Promise<T> | undefined;
   if (!p) {
-    p = fetch(path, { credentials: "same-origin" }).then((r) => {
+    p = get(path).then(async (r) => {
+      // the bank is for signed-in people (worker/coce/guard.ts): signed out → the door, and back here afterwards;
+      // blocked → the door, which says so
+      if (r.status === 401) location.replace(`/sign-in?next=${encodeURIComponent(location.pathname + location.search)}`);
+      if (r.status === 403 && ((await r.clone().json().catch(() => null)) as { error?: string } | null)?.error === "blocked") location.replace("/sign-in?blocked");
       if (!r.ok) throw new Error(`${path}: ${r.status}`);
       return r.json() as Promise<T>;
     });

@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && node scripts/copy-media.mjs && node scripts/keep-assets.mjs",
+    "build": "node scripts/check-data.mjs && vite build && node scripts/copy-media.mjs && node scripts/keep-assets.mjs",
     "dev": "vite build && node scripts/dev.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "deploy": "npm test && sh scripts/public-export.sh && npm run build && wrangler deploy -c wrangler.app.jsonc && sh scripts/public-export.sh --push",
+    "deploy": "npm test && npm run build && node scripts/upload-keys.mjs && wrangler deploy -c wrangler.app.jsonc",
+    "release": "sh scripts/public-export.sh --push",
     "db:migrate:remote": "wrangler d1 migrations apply tcf-monster --remote -c wrangler.app.jsonc"
   },
   "dependencies": {
@@ -24,7 +25,7 @@
     "fake-indexeddb": "^6.2.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.7",
-    "vitest": "^3.2.7",
-    "wrangler": "^4.151.1"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
   }
 }

@@ -7,6 +7,7 @@
 import { type Env, nowIso, day } from "./util.ts";
 import { sendDesigned, sentToday, newsCap, mailsOff, stopToken } from "./mail.ts";
 import { esc, SITE } from "./mails.ts";
+import { same } from "./auth.ts";
 
 type U = { id: string; email: string; name: string | null; lang: string; settings: string; exam_date: string | null; luck_for: string | null; after_for: string | null };
 
@@ -31,8 +32,15 @@ const shift = (d: string, n: number) => new Date(Date.parse(d + "T12:00:00Z") + 
 function localHour(env: Env, settings: string, at = new Date()) {
   let tz = env.APP_TZ;
   try { const s = JSON.parse(settings); if (typeof s.tz === "string" && s.tz.length < 60) tz = s.tz; } catch { /* the app's */ }
-  const h = (z: string) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: z, hour: "2-digit", hourCycle: "h23" }).format(at));
+  const h = (z: string) => Number(hourFormat(z).format(at));
   try { return h(tz); } catch { return h(env.APP_TZ); }
+}
+const hourFormats = new Map<string, Intl.DateTimeFormat>();
+/** one formatter per time zone, kept for the night (making one per person cost the nightly run its CPU time) */
+function hourFormat(z: string) {
+  let f = hourFormats.get(z);
+  if (!f) { f = new Intl.DateTimeFormat("en-GB", { timeZone: z, hour: "2-digit", hourCycle: "h23" }); if (hourFormats.size < 500) hourFormats.set(z, f); }
+  return f;
 }
 export const NIGHT_MAX = 25;
 const AFTER_DAYS = 4;
@@ -89,7 +97,7 @@ const H = (en: string, fr: string, size = 22) => `<h1 style="margin:0 0 6px;font
 export async function handleStop(req: Request, env: Env, url: URL) {
   const id = url.searchParams.get("u") ?? "", t = url.searchParams.get("t") ?? "";
   const u = id ? await env.DB.prepare("SELECT id, settings FROM users WHERE id = ?").bind(id).first<{ id: string; settings: string }>() : null;
-  if (!u || t !== (await stopToken(env, id))) return page("tcf.monster", H("This link is no longer valid", "Ce lien n'est plus valable") + `<a href="${SITE}" style="color:#23201c;font-weight:800">tcf.monster</a>`, 404);
+  if (!u || !same(t, await stopToken(env, id))) return page("tcf.monster", H("This link is no longer valid", "Ce lien n'est plus valable") + `<a href="${SITE}" style="color:#23201c;font-weight:800">tcf.monster</a>`, 404);
   if (req.method === "POST") {
     let s: Record<string, unknown> = {};
     try { s = JSON.parse(u.settings); } catch { /* start again */ }

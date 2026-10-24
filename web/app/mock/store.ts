@@ -55,6 +55,12 @@ const readLocal = (id: number): LocalState | null => { try { const v = JSON.pars
 export const sane = (s: LocalState | null, id: number): LocalState => ({ ...empty(id), ...(s ?? {}), answers: { co: s?.answers?.co ?? {}, ce: s?.answers?.ce ?? {} }, stamps: { co: s?.stamps?.co ?? {}, ce: s?.stamps?.ce ?? {} }, cursor: { co: s?.cursor?.co ?? null, ce: s?.cursor?.ce ?? null }, heard: { co: s?.heard?.co ?? null, ce: s?.heard?.ce ?? null }, drafts: s?.drafts ?? {} });
 
 /** the two local copies merged answer by answer (the newest stamp wins), the furthest cursor, the longest draft */
+/** « erase everything from this device » at sign-out: every mock kept here (its answers already reached the server) */
+export async function forgetMocksHere(): Promise<void> {
+  await idb("readwrite", (s) => s.clear());
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("tcfm-mock-")) localStorage.removeItem(k); } catch { /* fine */ }
+}
+
 export function merge(a: LocalState, b: LocalState): LocalState {
   const out = sane(a, a.id);
   for (const st of ["co", "ce"] as const) {

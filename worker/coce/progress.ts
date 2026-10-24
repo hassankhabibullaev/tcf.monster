@@ -2,7 +2,7 @@
 // events the browser already applied and stores the result (docs/COCE.md §2). The rules are shared/progress.ts, the
 // same file the browser runs. Free plan: one row write per (section, level) touched, one per practice day touched,
 // counted in `budget`; past the hold line the answer is { hold: true } and the browser keeps its queue.
-import { type Env, json, fail, nowIso, day, addWrites, BUDGET_HOLD } from "../util.ts";
+import { type Env, json, fail, nowIso, day, addWrites, BUDGET_HOLD, readText } from "../util.ts";
 import type { Me } from "../auth.ts";
 import { type Event, type Level, type Section, type State, LEVELS, apply, emptyState } from "../../shared/progress.ts";
 
@@ -96,12 +96,14 @@ export async function handleProgress(req: Request, env: Env, me: Me, url: URL): 
   return json({ levels, updatedAt });
 }
 
+const DAY_ROWS_MAX_AGE_S = 7 * 86400;
+const DAY_ROWS_PER_BUNDLE = 20;
+
 /** POST /api/sync { events } → { ok: true, applied } or { hold: true } */
 export async function handleSync(req: Request, env: Env, me: Me): Promise<Response> {
   if (req.method !== "POST") return fail(405, "POST");
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return fail(413, "too large");
-  const text = await req.text();
-  if (text.length > MAX_BODY) return fail(413, "too large");
+  const text = await readText(req, MAX_BODY);
+  if (text === null) return fail(413, "too large");
   let body: { events?: unknown } | null = null;
   try { body = JSON.parse(text); } catch { body = null; }
   if (!body || !Array.isArray(body.events)) return fail(400, "events");
@@ -115,60 +117,70 @@ export async function handleSync(req: Request, env: Env, me: Me): Promise<Respon
   const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
   if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ hold: true });
 
-  // the rows this bundle touches, read once
-  const touched = new Set(events.map((e) => `${e.section}/${e.level}`));
-  const sections = SECTIONS.filter((s) => events.some((e) => e.section === s));
-  const { results } = await env.DB.prepare(`SELECT section, level, data FROM progress WHERE user_id = ? AND section IN (${sections.map(() => "?").join(", ")})`)
-    .bind(me.id, ...sections).all<{ section: string; level: string; data: string }>();
-  const before = new Map<string, State>();
-  for (const r of results) if (touched.has(`${r.section}/${r.level}`)) before.set(`${r.section}/${r.level}`, parseState(r.data));
-  const states = new Map<string, State>(before);
-
-  // apply in order; a practice day counts only the answers that changed something (a resent bundle adds nothing)
+  // read, apply, write back only where the row is still what was read: a second tab writing the same level at the same
+  // moment makes that level go round again (applying an event twice changes nothing), so no bundle is lost
   type DayRow = { day: string; section: Section; level: Level; answered: number; wrong: number; seconds: number; lastAt: string };
-  const days = new Map<string, DayRow>();
-  let applied = 0;
-  for (const e of events) {
-    const k = `${e.section}/${e.level}`;
-    const s = states.get(k) ?? emptyState();
-    // a level is full: an answer to yet another (made-up) question is ignored; known questions still change
-    if (e.type === "answer" && e.qid && !s.q[e.qid] && Object.keys(s.q).length >= MAX_Q) continue;
-    const next = apply(s, e);
-    if (next === s) continue;
-    states.set(k, next);
-    applied++;
-    if (e.type !== "answer") continue;
-    const at = new Date(e.t * 1000);
-    const d = day(env.APP_TZ, at);
-    const dk = `${d}/${k}`;
-    const row = days.get(dk) ?? { day: d, section: e.section, level: e.level, answered: 0, wrong: 0, seconds: 0, lastAt: "" };
-    row.answered++;
-    if (!e.right) row.wrong++;
-    row.seconds += e.dt ?? 0;
-    const iso = at.toISOString();
-    if (iso > row.lastAt) row.lastAt = iso;
-    days.set(dk, row);
-  }
+  let pending = events, applied = 0, written = 0;
+  for (let round = 0; round < 3 && pending.length; round++) {
+    const touched = new Set(pending.map((e) => `${e.section}/${e.level}`));
+    const sections = SECTIONS.filter((s) => pending.some((e) => e.section === s));
+    const { results } = await env.DB.prepare(`SELECT section, level, data FROM progress WHERE user_id = ? AND section IN (${sections.map(() => "?").join(", ")})`)
+      .bind(me.id, ...sections).all<{ section: string; level: string; data: string }>();
+    const raw = new Map<string, string>();
+    const before = new Map<string, State>();
+    for (const r of results) if (touched.has(`${r.section}/${r.level}`)) { raw.set(`${r.section}/${r.level}`, r.data); before.set(`${r.section}/${r.level}`, parseState(r.data)); }
+    const states = new Map<string, State>(before);
 
-  // one batch: a row per (section, level) that changed, a row per practice day touched
-  const now = nowIso();
-  const stmts: D1PreparedStatement[] = [];
-  for (const [k, s] of states) {
-    if (s === before.get(k)) continue;
-    const [section, level] = k.split("/");
-    stmts.push(env.DB.prepare(`INSERT INTO progress (user_id, section, level, data, updated_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, section, level) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`)
-      .bind(me.id, section, level, JSON.stringify(s), now));
-  }
-  for (const r of days.values()) {
-    stmts.push(env.DB.prepare(`INSERT INTO practice_days (user_id, day, section, level, answered, wrong, seconds, last_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    // apply in order; a practice day counts only the answers that changed something (a resent bundle adds nothing)
+    const days = new Map<string, DayRow & { k: string }>();
+    const changed = new Map<string, number>();
+    for (const e of pending) {
+      const k = `${e.section}/${e.level}`;
+      const s = states.get(k) ?? emptyState();
+      // a level is full: an answer to yet another (made-up) question is ignored; known questions still change
+      if (e.type === "answer" && e.qid && !s.q[e.qid] && Object.keys(s.q).length >= MAX_Q) continue;
+      const next = apply(s, e);
+      if (next === s) continue;
+      states.set(k, next);
+      changed.set(k, (changed.get(k) ?? 0) + 1);
+      if (e.type !== "answer") continue;
+      const at = new Date(e.t * 1000);
+      // the practice calendar takes the last week only, and at most 20 day rows a bundle: a made-up history cannot
+      // write hundreds of rows at once (the answers still count in the level's state above)
+      if (nowSec - e.t > DAY_ROWS_MAX_AGE_S) continue;
+      const d = day(env.APP_TZ, at);
+      const dk = `${d}/${k}`;
+      if (!days.has(dk) && days.size >= DAY_ROWS_PER_BUNDLE) continue;
+      const row = days.get(dk) ?? { k, day: d, section: e.section, level: e.level, answered: 0, wrong: 0, seconds: 0, lastAt: "" };
+      row.answered++;
+      if (!e.right) row.wrong++;
+      row.seconds += e.dt ?? 0;
+      const iso = at.toISOString();
+      if (iso > row.lastAt) row.lastAt = iso;
+      days.set(dk, row);
+    }
+
+    // the levels that changed, each only if nobody wrote it since it was read
+    const now = nowIso();
+    const keys = [...changed.keys()];
+    if (!keys.length) break;
+    const out = await env.DB.batch(keys.map((k) => {
+      const [section, level] = k.split("/");
+      return env.DB.prepare(`INSERT INTO progress (user_id, section, level, data, updated_at) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, section, level) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at WHERE progress.data IS ?`)
+        .bind(me.id, section, level, JSON.stringify(states.get(k)), now, raw.get(k) ?? null);
+    }));
+    const done = new Set(keys.filter((_, i) => Number(out[i]?.meta?.changes ?? 0) > 0));
+    // a practice day row per (day, level) whose level was written
+    const dayStmts = [...days.values()].filter((r) => done.has(r.k)).map((r) => env.DB.prepare(`INSERT INTO practice_days (user_id, day, section, level, answered, wrong, seconds, last_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id, day, section, level) DO UPDATE SET answered = answered + excluded.answered, wrong = wrong + excluded.wrong,
       seconds = seconds + excluded.seconds, last_at = max(last_at, excluded.last_at)`)
       .bind(me.id, r.day, r.section, r.level, r.answered, r.wrong, r.seconds, r.lastAt));
+    if (dayStmts.length) await env.DB.batch(dayStmts);
+    for (const k of done) applied += changed.get(k) ?? 0;
+    written += done.size + dayStmts.length;
+    pending = pending.filter((e) => !done.has(`${e.section}/${e.level}`) && changed.has(`${e.section}/${e.level}`));
   }
-  if (stmts.length) {
-    await env.DB.batch(stmts);
-    await addWrites(env, stmts.length);
-  }
+  if (written) await addWrites(env, written);
   return json({ ok: true, applied });
 }

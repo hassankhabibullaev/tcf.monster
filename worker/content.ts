@@ -32,9 +32,12 @@ export async function handleTopics(req: Request, env: Env, url: URL): Promise<Re
 async function readTopics(env: Env, url: URL, section: string, q: string) {
   const months = (await env.DB.prepare("SELECT month, COUNT(DISTINCT part) parts, COUNT(*) n FROM topics WHERE section = ? AND hidden = 0 AND gone_at IS NULL GROUP BY month ORDER BY month DESC").bind(section).all()).results as Row[];
   const month = url.searchParams.get("month") || String(months[0]?.month ?? "");
-  const rows = (await env.DB.prepare(`SELECT id, month, part, tache, position, title, body FROM topics
-    WHERE section = ?1 AND hidden = 0 AND gone_at IS NULL AND (?2 != '' OR month = ?3) AND (?2 = '' OR lower(title) LIKE ?4 OR lower(body) LIKE ?4)
-    ORDER BY month DESC, part, tache, position LIMIT 400`).bind(section, q, month, `%${q}%`).all()).results as Row[];
+  // a search reads the section once (kept in this server's memory ten minutes) and looks through it here: any words
+  // typed cost no database reads (a script typing random words used to read the whole section each time)
+  const rows = q
+    ? (await sectionRows(env, section)).filter((r) => String(r.title).toLowerCase().includes(q) || String(r.body).toLowerCase().includes(q)).slice(0, 400)
+    : ((await env.DB.prepare(`SELECT id, month, part, tache, position, title, body FROM topics
+      WHERE section = ?1 AND hidden = 0 AND gone_at IS NULL AND month = ?2 ORDER BY part, tache, position LIMIT 400`).bind(section, month).all()).results as Row[]);
   return {
     months,
     month,
@@ -47,3 +50,16 @@ async function readTopics(env: Env, url: URL, section: string, q: string) {
     }),
   };
 }
+
+const sections = new Map<string, { at: number; rows: Promise<Row[]> }>();
+/** every visible topic of a section, newest month first, read once per server every ten minutes */
+function sectionRows(env: Env, section: string): Promise<Row[]> {
+  const kept = sections.get(section);
+  if (kept && Date.now() - kept.at < TOPICS_CACHE_SECONDS * 1000) return kept.rows;
+  const rows = env.DB.prepare(`SELECT id, month, part, tache, position, title, body FROM topics WHERE section = ? AND hidden = 0 AND gone_at IS NULL
+    ORDER BY month DESC, part, tache, position LIMIT 5000`).bind(section).all().then((r) => r.results as Row[]);
+  rows.catch(() => sections.delete(section));
+  sections.set(section, { at: Date.now(), rows });
+  return rows;
+}
+export const resetTopicRows = () => sections.clear();
