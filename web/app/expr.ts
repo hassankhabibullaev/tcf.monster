@@ -24,7 +24,9 @@ export const sectionOf = (skill: "writing" | "speaking"): Section => (skill === 
 /** the official times (worker/sim/config.ts), for a session rebuilt after a reload */
 const WRITING_MIN: Record<TaskNo, number> = { 1: 10, 2: 15, 3: 25 };
 const SPEAKING_S: Record<TaskNo, number> = { 1: 120, 2: 120 + 210, 3: 270 };
-export const totalSecondsOf = (skill: "writing" | "speaking", taches: TaskNo[]) => taches.reduce((n, t) => n + (skill === "writing" ? WRITING_MIN[t] * 60 : SPEAKING_S[t]), 0);
+/** the official 60 min when the three writing tasks go together (shared/sim/config.ts writingTotalSeconds) */
+export const totalSecondsOf = (skill: "writing" | "speaking", taches: TaskNo[]) =>
+  skill === "writing" && new Set(taches).size === 3 ? 60 * 60 : taches.reduce((n, t) => n + (skill === "writing" ? WRITING_MIN[t] * 60 : SPEAKING_S[t]), 0);
 
 /** the started session is kept for the room (a reload rebuilds it from the server and this browser) */
 const key = (id: string) => `expr-session-${id}`;

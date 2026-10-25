@@ -13,6 +13,7 @@ import { setWorkOwner } from "./sim/work.ts";
 import { DICTS, LangContext, guessLang, rememberLang, type Lang } from "./i18n.ts";
 import { SignIn } from "./pages/SignIn.tsx";
 import { Welcome } from "./pages/Welcome.tsx";
+import { TermsAgain } from "./pages/TermsAgain.tsx";
 import { Home } from "./pages/Home.tsx";
 import { SectionPage, ExamCard, ResultPage, RunningBand, Redirect, EXAMS, seedRunning } from "./coce/pages/index.ts";
 import { PracticeRoute, ExamSalle, ReviewRoute } from "./pages/CoceRooms.tsx";
@@ -88,6 +89,17 @@ export function modernize(path: string, search: string, hash = ""): string | nul
 watchRequests();
 // the abuse guard's human check and block, for every call to our own server (web/app/guard-fetch.ts)
 installGuardFetch();
+// two traps no person can see or reach (off the screen, out of the tab order, hidden from screen readers): a link and a
+// button. A program that follows every link or presses every button touches one, and the server blocks it
+// (worker/guard.ts TRAPS)
+(() => {
+  const a = document.createElement("a");
+  a.href = "/data/bank-full.json"; a.rel = "nofollow"; a.textContent = "Banque complète";
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = "Exporter";
+  b.addEventListener("click", () => { void fetch("/api/me/archive", { method: "POST", credentials: "same-origin" }).catch(() => {}); });
+  for (const el of [a, b]) { el.className = "hp"; el.tabIndex = -1; el.setAttribute("aria-hidden", "true"); document.body.appendChild(el); }
+})();
 // a file of this app that is gone (a deploy happened while the tab was open): the page reloads once to the new app
 // (work in progress is kept by the rooms; a second failure within a minute is left to show)
 window.addEventListener("vite:preloadError", (e) => {
@@ -187,6 +199,9 @@ function App() {
     else if (me && isPublic) replace(safeNext);
     else if (me && !me.name && path !== "/welcome") replace(`/welcome${path === "/" ? "" : `?next=${encodeURIComponent(path + location.search)}`}`);
     else if (me && me.name && path === "/welcome") replace(safeNext); // the sentence was written once; a return to it goes on
+    // the terms changed since they were accepted: the three ticks once more, then on
+    else if (me && me.name && me.terms_ok === false && path !== "/terms-again") replace(`/terms-again${path === "/" ? "" : `?next=${encodeURIComponent(path + location.search)}`}`);
+    else if (me && me.terms_ok !== false && path === "/terms-again") replace(safeNext);
   }, [me, isPublic, path, safeNext, modern]);
 
   // the first page is the dashboard: a return after 20 minutes away (a refresh, a reopened tab) starts there, whatever the address was
@@ -219,6 +234,7 @@ function App() {
   if (modern || me === undefined || (me === null && !isPublic) || (me && isPublic) || (me && me.name && path === "/welcome")) page = <div className="boot" aria-busy="true" />;
   else if (path === "/sign-in") page = <SignIn />;
   else if (path === "/welcome") page = <Welcome />;
+  else if (path === "/terms-again") page = <TermsAgain />;
   // rooms bring their own frame (rail narrowed or hidden)
   else if ((m = path.match(/^\/(ee|eo)\/room\/([\w-]+)$/))) page = <Room s={m[1] as "ee" | "eo"} id={m[2]} />;
   else if ((m = path.match(/^\/(co|ce)\/practice\/(A1|A2|B1|B2|C1|C2)$/))) page = <PracticeRoute section={m[1] as "co" | "ce"} level={m[2] as "A1"} />;

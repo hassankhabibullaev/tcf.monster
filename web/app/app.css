@@ -407,7 +407,7 @@ select.pinput { cursor: pointer; }
   .x-way-text { flex: 1; gap: 3px; }
   .x-ways .pick b { font-size: 16px; }
   .x-way-sub { font-size: 12px; font-weight: 700; color: var(--ink-muted); }
-  .x-way-more { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-muted); text-align: left; cursor: pointer; }
+  .x-way-more { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; min-height: 24px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--ink-muted); text-align: left; cursor: pointer; }
   .x-way-more .icon { transition: transform var(--duration-quick) var(--ease-out); }
   .x-way[data-open] .x-way-more .icon { transform: rotate(180deg); }
   .x-ways .pick p { display: none; font-size: 13px; margin-top: 6px; }
@@ -461,3 +461,10 @@ select.pinput { cursor: pointer; }
 .ts-box:empty { display: none; }
 .ts-slot:empty { display: none; }
 .ts-slot { display: flex; justify-content: center; }
+
+/* the guard's traps (main.tsx): off the screen, never seen, never reached */
+.hp { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+
+/* the terms changed: the title and the three ticks of sign-up, centred like the welcome sentence */
+.terms-again { display: flex; flex-direction: column; gap: 18px; width: min(520px, 100% - 32px); margin: 8vh auto 0; }
+.terms-again h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin: 0; }

@@ -3,9 +3,10 @@
 // the server keeps only HMAC-SHA256(pepper, salt + that value). A stolen database alone gives nothing to test
 // guesses against, and every guess costs the full stretch. The server's own work stays inside the free plan's 10 ms.
 import { type Env, json, fail, nowIso, readJson, rateLimit, ipOf } from "./util.ts";
-import type { GuardState } from "./guard.ts";
+import { type GuardState, parseSigns } from "./guard.ts";
 import { isOwnerEmail } from "./access.ts";
 import { sendDesigned, sentToday, dayTotal } from "./mail.ts";
+import { networkState, markNetwork } from "./networks.ts";
 
 export const SESSION_COOKIE = "tcfm_session";
 const SESSION_DAYS = 30;
@@ -16,8 +17,10 @@ const CODE_MINUTES = 5;
 const CODE_TRIES = 5;
 const CODES_PER_HOUR = 5;
 const RESEND_SECONDS = 30;
-/** codes sent for one network (a keyed hash of its address) in a day, whatever the addresses asked for */
+/** codes sent for one network (a keyed hash of its address) in a day, whatever the addresses asked for; a network a
+ *  bot was caught on lately (worker/networks.ts) gets fewer */
 const NET_CODES_PER_DAY = 15;
+const STRICT_NET_CODES_PER_DAY = 5;
 /** codes a day for one address: at most 50 guesses a day at any account (each code allows 5) */
 const CODES_PER_DAY = 10;
 const LOGIN_FAILS = 10;
@@ -64,10 +67,22 @@ async function checkPassword(env: Env, stored: string, stretched: string) {
 
 const DUMMY_HASH = "hmac-sha256$0000000000000000000000$0";
 
-/** the visitor's network as a keyed hash (never the address itself, which is personal data): mail counts per network */
+/** the part of an address that names one network: an IPv4 address whole, an IPv6 address by its first 64 bits (one
+ *  home or one phone gets a whole /64, and a script can walk through it) */
+export function netPart(ip: string): string {
+  if (!ip.includes(":")) return ip;
+  const [head, tail = ""] = ip.toLowerCase().split("%")[0].split("::");
+  const left = head ? head.split(":") : [];
+  const right = ip.includes("::") && tail ? tail.split(":") : [];
+  const groups = ip.includes("::") ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right] : left;
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+/** the visitor's network as a keyed hash (never the address itself, which is personal data): mail counts per network,
+ *  the networks a bot was caught on (worker/networks.ts) */
 export async function networkOf(env: Env, req: Request): Promise<string | null> {
   const ip = ipOf(req);
-  return ip ? (await hmac(pepper(env), `net:${ip}`)).slice(0, 20) : null;
+  return ip ? (await hmac(pepper(env), `net:${netPart(ip)}`)).slice(0, 20) : null;
 }
 
 export const cleanEmail = (v: unknown) => {
@@ -111,7 +126,7 @@ async function startSession(env: Env, req: Request, userId: string) {
 }
 
 /** the signed-in person; `guard`: where the abuse guard stands with them (worker/guard.ts), read with the session */
-export type Me = { id: string; email: string; sid: string; guard?: GuardState };
+export type Me = { id: string; email: string; sid: string; guard?: GuardState; /** the guard wants the page to run today's invisible check */ askQuiet?: boolean };
 const tokenOf = (req: Request) => (req.headers.get("cookie") ?? "").match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`))?.[1];
 
 /** the signed-in person, or null. The first visit of a day moves the 30 days forward (once a day, not once an hour:
@@ -121,9 +136,9 @@ export async function currentUser(env: Env, req: Request): Promise<Me | null> {
   if (!token) return null;
   const sid = await sha256(token);
   // a blocked account has no sessions (blocking ends them); the condition keeps it out even if one survived
-  const r = await env.DB.prepare(`SELECT s.user_id, s.last_seen_at, s.created_at, u.email, u.human_until, u.human_needed_at, u.human_fails
+  const r = await env.DB.prepare(`SELECT s.user_id, s.last_seen_at, s.created_at, s.checked_day, u.email, u.human_until, u.human_needed_at, u.human_fails, u.guard_signs
     FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.expires_at > ? AND u.blocked_at IS NULL`)
-    .bind(sid, nowIso()).first<{ user_id: string; last_seen_at: string; created_at: string; email: string; human_until: string | null; human_needed_at: string | null; human_fails: number | null }>();
+    .bind(sid, nowIso()).first<{ user_id: string; last_seen_at: string; created_at: string; checked_day: string | null; email: string; human_until: string | null; human_needed_at: string | null; human_fails: number | null; guard_signs: string | null }>();
   if (!r) return null;
   const maxDays = isOwnerEmail(env, r.email) ? OWNER_SESSION_MAX_DAYS : SESSION_MAX_DAYS;
   if (Date.now() - Date.parse(r.created_at) > maxDays * 86_400_000) {
@@ -137,7 +152,7 @@ export async function currentUser(env: Env, req: Request): Promise<Me | null> {
       env.DB.prepare("UPDATE users SET last_seen_at = ? WHERE id = ?").bind(now, r.user_id),
     ]);
   }
-  return { id: r.user_id, email: r.email, sid, guard: { humanUntil: r.human_until, humanNeededAt: r.human_needed_at, humanFails: Number(r.human_fails ?? 0) } };
+  return { id: r.user_id, email: r.email, sid, guard: { humanUntil: r.human_until, humanNeededAt: r.human_needed_at, humanFails: Number(r.human_fails ?? 0), signs: parseSigns(r.guard_signs), checkedDay: r.checked_day } };
 }
 
 // ---- codes ----
@@ -145,11 +160,11 @@ type CodeRow = { code_hash: string; created_at: string; expires_at: string; trie
 
 /** send a 6-digit code; refuses politely when asked too often. `mail` is which of the four code mails carries it (the
  *  sign-up, sign-in and new-password codes share the "email" purpose: one code proves the address for all three) */
-export async function sendCode(env: Env, email: string, purpose: "email" | "delete", lang: string, mail: "signup" | "signin" | "password" | "delete" = purpose === "delete" ? "delete" : "signin", net: string | null = null) {
+export async function sendCode(env: Env, email: string, purpose: "email" | "delete", lang: string, mail: "signup" | "signin" | "password" | "delete" = purpose === "delete" ? "delete" : "signin", net: string | null = null, strict = false) {
   // one network, any addresses: at most NET_CODES_PER_DAY codes a day (a script cannot spend the day's mails)
   if (net) {
     const sent = await env.DB.prepare("SELECT COUNT(*) n FROM mail WHERE ip = ? AND at >= ?").bind(net, new Date(Date.now() - 86_400_000).toISOString()).first<{ n: number }>();
-    if (Number(sent?.n ?? 0) >= NET_CODES_PER_DAY) return { error: "too_many" };
+    if (Number(sent?.n ?? 0) >= (strict ? STRICT_NET_CODES_PER_DAY : NET_CODES_PER_DAY)) return { error: "too_many" };
   }
   const row = await env.DB.prepare("SELECT * FROM codes WHERE email = ? AND purpose = ?").bind(email, purpose).first<CodeRow>();
   const now = Date.now();
@@ -247,11 +262,22 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
   // one address hammering: the lock per account above does not stop guesses spread over many accounts, nor codes
   // sent to many addresses (on this Mac there is no address, so no limit)
   const ip = ipOf(req);
-  const hammering = (what: string, limit: number) => ip !== null && !rateLimit(`${what}:${ip}`, limit);
+  // a network a bot was caught on lately (worker/networks.ts): the check at every step, half the limits; one
+  // with several blocked accounts takes no new account for a while (one row read, the door's requests only)
+  const net = path === "/auth/logout" ? null : await networkOf(env, req);
+  const ns = await networkState(env, net);
+  // the door's hidden field (a person never sees it; a script filling every field does): its network goes strict
+  if (typeof b.hp === "string" && b.hp) { await markNetwork(env, req, "trap").catch(() => {}); ns.strict = true; }
+  const hammering = (what: string, limit: number) => ip !== null && !rateLimit(`${what}:${ip}`, ns.strict ? Math.ceil(limit / 2) : limit);
   // the same address on every Cloudflare server at once (the memory limit above is one server's): 20 a minute
   if (ip && env.AUTH_LIMIT && path !== "/auth/logout" && !(await env.AUTH_LIMIT.limit({ key: ip })).success) return json({ error: "too_many" }, 429);
-  /** no bot check passed: the page asks Cloudflare for one (the public key rides along) and sends again */
-  const notHuman = async (action: string) => ((await humanOk(env, b.turnstile, ip, action)) ? null : json({ error: "bot", turnstile: env.TURNSTILE_SITEKEY }, 403));
+  /** no bot check passed: the page asks Cloudflare for one (the public key rides along) and sends again; `strict`
+   *  tells it to show the box rather than wait for Cloudflare to want a click */
+  const notHuman = async (action: string) => ((await humanOk(env, b.turnstile, ip, action)) ? null : json({ error: "bot", turnstile: env.TURNSTILE_SITEKEY, ...(ns.strict ? { strict: true } : {}) }, 403));
+  /** the steps that need no check elsewhere need one on a strict network */
+  const strictCheck = async () => (ns.strict ? notHuman("strict") : null);
+  /** no new account from a network with several blocked accounts, for a few days */
+  const paused = () => json({ error: "paused", contact: "https://t.me/tcfmonsteradmin" }, 403);
 
   if (path === "/auth/exists") {
     // the one door asks the e-mail first and then shows the right next step: this tells it which one. It says
@@ -266,7 +292,8 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     const u = await env.DB.prepare("SELECT password IS NOT NULL has FROM users WHERE email = ?").bind(email).first<{ has: number }>();
     const exists = Boolean(u?.has);
     if (!exists && !mayJoin(env, email)) return json({ error: "closed" }, 403);
-    return json({ exists });
+    if (!exists && ns.closed) return paused();
+    return json({ exists, ...(ns.strict ? { strict: true } : {}) });
   }
 
   if (path === "/auth/code") {
@@ -276,13 +303,14 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     // a new account needs the door to be open; a forgotten password works for anyone who has an account
     const exists = await env.DB.prepare("SELECT password IS NOT NULL has FROM users WHERE email = ?").bind(email).first<{ has: number }>();
     if (!exists?.has && !mayJoin(env, email)) return json({ error: "closed" }, 403);
+    if (!exists?.has && ns.closed) return paused();
     // every code needs a bot check (no mail bombing, no endless guessing): the same answer for any address
     const bot = await notHuman("code");
     if (bot) return bot;
     if (!(await (exists?.has ? accountRoom(env) : signupRoom(env)))) return json({ error: "busy" }, 429);
     // which mail: no account yet is a sign-up; the page says whether an existing one signs in or sets a new password
     const mail = !exists?.has ? "signup" : b.why === "reset" || b.why === "password" ? "password" : "signin";
-    const r = await sendCode(env, email, "email", b.lang === "fr" ? "fr" : "en", mail, await networkOf(env, req));
+    const r = await sendCode(env, email, "email", b.lang === "fr" ? "fr" : "en", mail, net, ns.strict);
     return json(r, "error" in r ? (r.error === "mail" ? 502 : 429) : 200);
   }
 
@@ -291,6 +319,8 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     const email = cleanEmail(b.email);
     if (!email) return fail(400, "email");
     if (hammering("try", IP_TRIES_PER_MIN)) return json({ error: "too_many" }, 429);
+    const bot = await strictCheck();
+    if (bot) return bot;
     const u = await env.DB.prepare("SELECT id, blocked_at FROM users WHERE email = ? AND password IS NOT NULL").bind(email).first<{ id: string; blocked_at: string | null }>();
     // no account answers like an address with no code waiting (nothing tells the two apart)
     if (!u) return json({ error: "expired" }, 400);
@@ -306,6 +336,8 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     const email = cleanEmail(b.email);
     if (!email) return fail(400, "email");
     if (hammering("try", IP_TRIES_PER_MIN)) return json({ error: "too_many" }, 429);
+    const bot = await strictCheck();
+    if (bot) return bot;
     const r = await checkCode(env, email, "email", String(b.code ?? ""));
     if ("error" in r) return json(r, 400);
     const u = await env.DB.prepare("SELECT password IS NOT NULL has FROM users WHERE email = ?").bind(email).first<{ has: number }>();
@@ -316,6 +348,8 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     // new account (terms ticked) or a new password for an existing one, after a verified code
     const email = cleanEmail(b.email), pw = cleanStretched(b.password), proof = String(b.proof ?? "");
     if (!email || !pw || !proof) return fail(400, "fields");
+    const bot = await strictCheck();
+    if (bot) return bot;
     if (!(await useProof(env, email, "email", proof))) return json({ error: "expired" }, 400);
     const u = await env.DB.prepare("SELECT id, blocked_at FROM users WHERE email = ?").bind(email).first<{ id: string; blocked_at: string | null }>();
     if (u?.blocked_at) return json({ error: "blocked" }, 403);
@@ -330,6 +364,7 @@ export async function handleAuth(req: Request, env: Env, path: string): Promise<
     } else {
       if (b.terms !== true) return fail(400, "terms");
       if (!mayJoin(env, email)) return json({ error: "closed" }, 403);
+      if (ns.closed) return paused();
       id = randomToken(12);
       const lang = b.lang === "fr" ? "fr" : "en";
       await env.DB.prepare("INSERT INTO users (id, email, password, created_at, lang, terms_version, terms_at) VALUES (?, ?, ?, ?, ?, ?, ?)")

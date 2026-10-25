@@ -42,6 +42,8 @@ export type ExamRoomProps = {
 
 
 const RETRY_MS = 10_000;
+/** answers wait this long after the last change before they are sent (a few requests an exam, not one per click) */
+const SEND_AFTER_MS = 20_000;
 /** the real CO exam: the time a question keeps after its recording = the exam's seconds a question − the recording */
 const SECONDS_A_QUESTION = (DURATION_MIN.co * 60) / EXAM_QUESTIONS;
 const MIN_AFTER_RECORDING_S = 6;
@@ -158,10 +160,13 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
   }, [attempt.id, mock]);
   const schedulePatch = useCallback(() => {
     if (mock) return;
-    // only marked: the answers leave with the finish, or when the tab hides or the room is left
+    // marked, and sent SEND_AFTER_MS after the last change (a dead phone or a crash loses at most that much on the
+    // server); also with the finish, when the tab hides or the room is left
     dirty.current = true;
     unsent.current++;
-  }, [sendPatch]);
+    if (patchTimer.current) clearTimeout(patchTimer.current);
+    patchTimer.current = setTimeout(() => void sendPatch(), SEND_AFTER_MS);
+  }, [sendPatch, mock]);
   useEffect(() => {
     const hide = () => { if (document.visibilityState === "hidden") void sendPatch(true); };
     const unload = (e: BeforeUnloadEvent) => { if (phaseRef.current === "run") e.preventDefault(); };
@@ -210,11 +215,20 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
   }, [q, mock, mockStage]);
 
   // ---- ending ----
+  // the way the last finish was asked: a failed one is tried again the same way
+  const lastEnded = useRef<"done" | "abandon">("done");
   const finish = useCallback(async (ended: "done" | "abandon") => {
+    lastEnded.current = ended;
     setSheet(null);
     setPhase("finishing");
     // the mock: its store sends, the stage ends; the sitting goes on to the break (the mock's own routes score it)
-    if (mock) { await sendPatch(); mock.onStageEnd(ended); return; }
+    if (mock) {
+      // the answers first: a stage closed on the server refuses them afterwards, so a failed send is tried again a few
+      // times (two seconds apart) before the stage ends
+      for (let i = 0; i < 5; i++) { await sendPatch(); if (!mock.store.unsent) break; await new Promise((r) => setTimeout(r, 2000)); }
+      mock.onStageEnd(ended);
+      return;
+    }
     // the answers not sent yet ride with the finish (one request instead of two)
     if (patchTimer.current) { clearTimeout(patchTimer.current); patchTimer.current = null; }
     const answers = dirty.current ? answersRef.current : undefined;
@@ -277,7 +291,7 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
   const given = answers[placementOf(q)];
   const chosen: Key | null = given === "A" || given === "B" || given === "C" || given === "D" ? given : null;
   const band = !online || netDown ? <><Icon name="wifiOff" size={16} /><span>{w.offlineExam}</span></>
-    : phase === "failed" ? <><span>{w.finishFailed}</span><Button size="sm" icon="refresh" onClick={() => void finish("done")}>{w.retry}</Button></> : undefined;
+    : phase === "failed" ? <><span>{w.finishFailed}</span><Button size="sm" icon="refresh" onClick={() => void finish(lastEnded.current)}>{w.retry}</Button></> : undefined;
 
   const leftCol = co ? (
     <>
@@ -299,11 +313,12 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
   // the footer every room shares: Terminer (red) at the left, Précédent · Suivant at the right; Suivant shuts on the
   // last question (Terminer is the way out), and in the real CO exam until the recording has ended
   const last = idx === total - 1;
-  // the real listening exam ends by its clock alone (each recording once, the next question by itself): Complete is shut there
+  // the real listening exam ends by its clock alone (each recording once, the next question by itself): Complete is shut
+  // there until the last recording has been heard (then it is the way out, should the sheet that opened by itself be closed)
   // on phones the same buttons, shorter: the red stop, « ‹ », the grid button « 1 / 39 » (the picker), « Suivant › »
   const foot = (
     <>
-      <Button kind="quiet" onClick={() => setSheet("finish")} disabled={phase !== "run" || strict || pending} busy={phase === "finishing"} className="room-finish" aria-label={w.finish}><Icon name="stop" size={18} className="mob-only icon-fill" /><span className="desk-only">{w.finish}</span></Button>
+      <Button kind="quiet" onClick={() => setSheet("finish")} disabled={phase !== "run" || (strict && !(last && heard)) || pending} busy={phase === "finishing"} className="room-finish" aria-label={w.finish}><Icon name="stop" size={18} className="mob-only icon-fill" /><span className="desk-only">{w.finish}</span></Button>
       <span className="cr-foot-mid" />
       {!strictOrder && <Button kind="quiet" onClick={() => go(idx - 1)} disabled={idx === 0} className="cr-prev" aria-label={w.prev}><Icon name="chevronLeft" size={20} className="mob-only" /><span className="desk-only">{w.prev}</span></Button>}
       <Button className="cr-grid mob-only num" aria-haspopup="dialog" onClick={() => setPicker(true)} aria-label={progress.label}><Icon name="grid" size={16} />{n} / {total}</Button>
@@ -324,7 +339,7 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
         {/* the stop sheet: every question as a disc (answered filled in ink, unanswered neutral), the two buttons side by side;
             « Abandonner le test » ends the exam now and scores it (unanswered questions count wrong) */}
         <Sheet open={sheet === "finish"} title={w.finishTitle} onClose={() => setSheet(null)} className="cr-finish"
-          actions={<><Button onClick={() => setSheet(null)}>{w.continueExam}</Button><Button kind="danger" onClick={() => void finish(whole ? "done" : "abandon")}>{w.abandonTest}</Button></>}>
+          actions={<><Button onClick={() => setSheet(null)}>{w.continueExam}</Button>{whole ? <Button kind="primary" onClick={() => void finish("done")}>{w.finish}</Button> : <Button kind="danger" onClick={() => void finish("abandon")}>{w.abandonTest}</Button>}</>}>
           <ul className="cr-cells" aria-label={progress.label}>
             {questions.map((x, i) => <li key={x.id} className="cr-disc" data-tone={answers[placementOf(x)] ? "done" : "todo"} aria-current={i === idx ? "true" : undefined}>{i + 1}</li>)}
           </ul>

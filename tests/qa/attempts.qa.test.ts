@@ -63,7 +63,7 @@ describe("starting", () => {
 describe("answering and finishing", () => {
   it("answers for placements of another exam, another section, a bad position: kept out; good ones merged", async () => {
     await start("co", 12);
-    const r = await patch(1, { "CO-12-01": "A", "CO-13-02": "A", "CE-12-03": "A", "CO-12-40": "A", "CO-12-00": "A", "co-12-04": "A", "CO-12-5": "A", "CO-12-06": "a", "CO-12-07": null, "CO-12-08": "-" });
+    const r = await patch(1, { "CO-12-01": "A", "CO-13-02": "A", "CE-12-03": "A", "CO-12-50": "A", "CO-12-00": "A", "co-12-04": "A", "CO-12-5": "A", "CO-12-06": "a", "CO-12-07": null, "CO-12-08": "-" });
     expect(r.status).toBe(200);
     expect(r.data.attempt.answers).toEqual({ "CO-12-01": "A", "CO-12-08": "-" });
     expect(JSON.parse(row(1).answers)).toEqual({ "CO-12-01": "A", "CO-12-08": "-" });

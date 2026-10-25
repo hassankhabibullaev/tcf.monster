@@ -1,6 +1,6 @@
 /** What an API route answers when a call failed. */
 export type ApiFailure = { error?: string; code?: string; retryInS?: number };
-export type Failure = { message: string; /** when the page may try again by itself */ retryInS: number; /** Google's side (overloaded, quota), not ours */ google: boolean; /** the person's key is the problem: the profile is the way out */ key?: boolean };
+export type Failure = { message: string; /** when the page may try again by itself */ retryInS: number; /** Google's side (overloaded, quota), not ours */ google: boolean; /** the person's key is the problem: the profile is the way out */ key?: boolean; /** the work is on another device: nothing to retry here */ away?: boolean };
 
 const MIN = (s: number) => Math.max(1, Math.round(s / 60));
 

@@ -123,6 +123,8 @@ export function Dispute({ id }: { id: number }) {
   const { data: d, error, reload } = useApi<One>(`/disputes/${id}`);
   const say = useToast();
   const [note, setNote] = useState("");
+  // a reopened report brings its earlier note back into the field, so marking it done again does not erase it
+  useEffect(() => { if (d?.note) setNote(String(d.note)); }, [d?.id, d?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
   const act = async (a: "resolve" | "reopen") => {
     setBusy(true);

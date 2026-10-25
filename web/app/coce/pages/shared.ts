@@ -63,6 +63,20 @@ export function latestScore(attempts: AttemptRow[]): { score: number; nclc: numb
 /** the salle's address; a training attempt carries its mode in the query (`?mode=training`) */
 export const sallePath = (a: Pick<AttemptRow, "section" | "exam"> & { mode?: AttemptMode | null }) =>
   `/${a.section}/exam/${a.exam}/room${a.mode === "training" ? "?mode=training" : ""}`;
+/** « Commencer » was pressed for this exam: the room may open the hallway and start an attempt. Without it (the
+ *  browser's Back onto a finished exam's room, an old link) the room sends the person to the exam card instead. */
+const START_KEY = "tcfm-start";
+export function armStart(section: CoceSection, exam: number) {
+  try { sessionStorage.setItem(START_KEY, `${section}-${exam}`); } catch { /* no storage: the room lets the hallway open */ }
+}
+/** true when a start was asked for this exam (the ask is used up) or when this browser keeps no session storage */
+export function takeStart(section: CoceSection, exam: number) {
+  try {
+    const ok = sessionStorage.getItem(START_KEY) === `${section}-${exam}`;
+    sessionStorage.removeItem(START_KEY);
+    return ok;
+  } catch { return true; }
+}
 export const resultPath = (a: Pick<AttemptRow, "section" | "exam" | "id">) => `/${a.section}/exam/${a.exam}/result/${a.id}`;
 
 // ---- the running attempt, with the server's clock ----

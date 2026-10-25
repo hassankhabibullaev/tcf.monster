@@ -70,6 +70,9 @@
     /* English unless this device chose French before (the owner, 2026-10-22: English by default) */
     var chosen = store.get("lang");
     setLang(chosen === "fr" ? "fr" : "en");
+  } else {
+    /* a page without the pill (the thanks page) speaks the language chosen on the others */
+    setLang(store.get("lang") === "fr" ? "fr" : "en");
   }
 
   /* Donations, as in the app: one button, the amount is chosen on the payment page. The app's Worker answers the page

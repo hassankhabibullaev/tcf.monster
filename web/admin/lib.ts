@@ -58,7 +58,8 @@ export function when(iso?: string | null) {
   if (!iso) return "never";
   const d = new Date(iso), now = new Date();
   const days = Math.round((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86400000);
-  if (days <= 0) return `today ${time(iso)}`;
+  if (days < 0) return days === -1 ? `tomorrow ${time(iso)}` : date(iso);
+  if (days === 0) return `today ${time(iso)}`;
   if (days === 1) return `yesterday ${time(iso)}`;
   if (days < 7) return `${days} d ago`;
   return date(iso);
@@ -67,5 +68,10 @@ export function daysLeft(examDate?: string | null) {
   if (!examDate) return null;
   return Math.ceil((new Date(examDate + "T12:00:00").getTime() - Date.now()) / 86400000);
 }
-export const minutes = (s?: number | null) => (s == null ? "—" : s < 3600 ? `${Math.round(s / 60)} min` : `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")}`);
+/** seconds as « 12 min » or « 1 h 05 », rounded to the minute first (3 599 s is « 1 h 00 », never « 60 min » or « 1 h 60 ») */
+export const minutes = (s?: number | null) => {
+  if (s == null) return "—";
+  const m = Math.round(s / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+};
 export const plural = (n: number, one: string, many = one + "s") => `${num(n)} ${n === 1 ? one : many}`;

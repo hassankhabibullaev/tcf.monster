@@ -2,7 +2,7 @@
 // the simulator ask before they start (no timeline here: that is worker/mock/index.ts, inside the mock's own routes).
 import type { Env } from "../util.ts";
 import { isPending, stageEndsAt } from "./clock.ts";
-import { COLS, type Answer, type CoceResult, type EndedJson, type Mock, type MockRow, type Paper, type Result, type Row, type Topics } from "./types.ts";
+import { COLS, type Answer, type CoceResult, type EndedJson, type Mock, type MockRow, type Paper, type PaperView, type Result, type Row, type Topics } from "./types.ts";
 
 export const parse = <T>(s: string | null | undefined, fallback: T): T => { try { return s ? (JSON.parse(s) as T) : fallback; } catch { return fallback; } };
 export const paperOf = (r: Row): Paper => { const p = parse<Partial<Paper>>(r.paper_json, {}); return { co: p.co ?? [], ce: p.ce ?? [] }; };
@@ -20,7 +20,9 @@ export function toMockRow(r: Row): MockRow {
     eeSessionId: r.ee_session_id, eoSessionId: r.eo_session_id,
   };
 }
-export const toMock = (r: Row): Mock => ({ ...toMockRow(r), paper: paperOf(r), answers: { co: answersOf(r, "co"), ce: answersOf(r, "ce") }, coResult: resultOf(r, "co"), ceResult: resultOf(r, "ce") });
+/** the browser's copy of the paper: ids and levels only (the answers are the server's, for the scoring) */
+const paperView = (p: Paper): PaperView => ({ co: p.co.map(({ id, level }) => ({ id, level })), ce: p.ce.map(({ id, level }) => ({ id, level })) });
+export const toMock = (r: Row): Mock => ({ ...toMockRow(r), paper: paperView(paperOf(r)), answers: { co: answersOf(r, "co"), ce: answersOf(r, "ce") }, coResult: resultOf(r, "co"), ceResult: resultOf(r, "ce") });
 
 /** the person's unfinished mock, as stored (not advanced) */
 export const runningMock = (env: Env, userId: string) =>

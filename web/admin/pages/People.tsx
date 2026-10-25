@@ -82,7 +82,12 @@ export function People() {
   const { params } = useLocation();
   const filter = params.get("filter") ?? "all", sort = params.get("sort") ?? "seen", page = Number(params.get("page") ?? 0);
   const [q, setQ] = useState(params.get("q") ?? "");
-  useEffect(() => { const t = setTimeout(() => setParams({ q: q.trim() || null, page: null }), 250); return () => clearTimeout(t); }, [q]);
+  // a new search goes back to the first page; the page of a link or of Back stays (nothing typed yet)
+  useEffect(() => {
+    if (q.trim() === (params.get("q") ?? "")) return;
+    const t = setTimeout(() => setParams({ q: q.trim() || null, page: null }), 250);
+    return () => clearTimeout(t);
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
   const qs = new URLSearchParams({ filter, sort, page: String(page), q: params.get("q") ?? "" });
   const { data, error } = useApi<{ rows: PersonRow[]; total: number; page: number; pageSize: number }>(`/people?${qs}`);
   const pages = data ? Math.ceil(data.total / data.pageSize) : 0;
@@ -147,7 +152,7 @@ export function People() {
             {data.rows.map((p) => (
               <li key={p.id}>
                 <a className="card person-card" {...linkProps(`/people/${p.id}`)}>
-                  <span className="who"><strong>{p.name ?? "—"}</strong><span className="muted">{p.email}</span></span>
+                  <span className="who"><strong>{p.name ?? "—"}{p.blocked_at && <> <Chip tone="bad">blocked</Chip></>}</strong><span className="muted">{p.email}</span></span>
                   <span className="person-card-meta">
                     <span>{when(p.last_seen_at)}</span>
                     <span>joined {date(p.created_at)}</span>

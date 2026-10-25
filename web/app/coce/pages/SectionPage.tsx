@@ -172,7 +172,7 @@ function Exams({ section, lang }: { section: CoceSection; lang: Lang }) {
             const band = s ? (s.nclc != null && s.nclc >= 7 ? "ok" : s.nclc != null && s.nclc >= 5 ? "amber" : "low") : undefined;
             return (
               <li key={n}>
-                <a className="card cp-exam" data-state={running ? "running" : done ? "done" : "new"} data-band={band} aria-label={w.examTitle(section, n)} {...linkProps(`/${section}/exam/${n}`)}>
+                <a className="card cp-exam" data-state={running ? "running" : done ? "done" : "new"} data-band={band} aria-label={`${w.examTitle(section, n)} · ${running ? w.running : done ? w.done : w.newExam}${s ? ` · ${s.score} / 699` : ""}`} {...linkProps(`/${section}/exam/${n}`)}>
                   <span className="cp-exam-no" aria-hidden="true">{n}</span>
                   <Chip tone={running ? "amber" : done ? "ok" : "new"} dot={running}>{running ? w.running : done ? w.done : w.newExam}</Chip>
                   <span className="cp-exam-score" data-empty={s ? undefined : ""}>

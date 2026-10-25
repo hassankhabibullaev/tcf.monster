@@ -4,7 +4,7 @@
 import { passedAccess, isOwnerEmail } from "./access.ts";
 import { type Env, json, fail, nowIso, day, daysAgoIso, readJson } from "./util.ts";
 import { currentUser } from "./auth.ts";
-import { blockUser, unblockUser } from "./guard.ts";
+import { blockUser, unblockUser, parseSigns, scoreOf, SIGNS, ASK_AT, BLOCK_AT } from "./guard.ts";
 
 type Row = Record<string, unknown>;
 const all = async (env: Env, sql: string, ...args: unknown[]) => (await env.DB.prepare(sql).bind(...args).all()).results as Row[];
@@ -114,7 +114,7 @@ async function people(env: Env, url: URL) {
 
 async function person(env: Env, id: string) {
   const u = await one(env, `SELECT id, email, name, created_at, last_seen_at, target_nclc, exam_date, lang, settings, terms_version, terms_at,
-    gemini_status, gemini_checked_at, gemini_error, note, password IS NOT NULL has_password, blocked_at, blocked_reason, human_until, human_needed_at, human_reason, human_fails FROM users WHERE id = ?`, id);
+    gemini_status, gemini_checked_at, gemini_error, note, password IS NOT NULL has_password, blocked_at, blocked_reason, human_until, human_needed_at, human_reason, human_fails, guard_signs FROM users WHERE id = ?`, id);
   if (!u) return null;
   const [devices, prog, att, expr, practice, today, reports, reads, events, use] = await Promise.all([
     all(env, "SELECT id, device, created_at, last_seen_at, expires_at FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY last_seen_at DESC", id, nowIso()),
@@ -136,7 +136,11 @@ async function person(env: Env, id: string) {
   for (const r of reads) if (bank[String(r.kind)]) bank[String(r.kind)] = { today: num(r, "today"), week: num(r, "week") };
   let settings = {};
   try { settings = JSON.parse(String(u.settings)); } catch { /* keep {} */ }
-  return { user: { ...u, settings, has_password: Boolean(u.has_password) }, devices, colours: colours(prog), attempts: att, expression: expr, practice, answeredToday: num(today), disputes: reports, bank, guard: { events, today: { requests: num(use, "requests"), writes: num(use, "writes") } } };
+  // the signs of a machine seen in the last seven days and the score they make (worker/guard.ts)
+  const seen = parseSigns(u.guard_signs as string | null);
+  const signs = (Object.keys(seen) as (keyof typeof SIGNS)[]).map((k) => ({ sign: k, label: SIGNS[k].label, weight: SIGNS[k].weight, at: seen[k] }));
+  const { guard_signs: _signs, ...user } = u;
+  return { user: { ...user, settings, has_password: Boolean(u.has_password) }, devices, colours: colours(prog), attempts: att, expression: expr, practice, answeredToday: num(today), disputes: reports, bank, guard: { events, today: { requests: num(use, "requests"), writes: num(use, "writes") }, score: scoreOf(seen), askAt: ASK_AT, blockAt: BLOCK_AT, signs } };
 }
 
 /** what the owner can do to one person; each one confirmed in the page first */
@@ -167,7 +171,7 @@ async function act(env: Env, id: string, action: string, body: Row | null) {
   if (action === "delete") {
     // everything that belongs to the person, then the person (no reliance on cascades)
     await d.batch([d.prepare("DELETE FROM expr_tasks WHERE session_id IN (SELECT id FROM expr_sessions WHERE user_id = ?)").bind(id)]
-      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(id)))
+      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads", "usage", "guard_events"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(id)))
       .concat(d.prepare("DELETE FROM codes WHERE email = (SELECT email FROM users WHERE id = ?)").bind(id), d.prepare("DELETE FROM mail WHERE email = (SELECT email FROM users WHERE id = ?)").bind(id), d.prepare("DELETE FROM users WHERE id = ?").bind(id)));
     return json({ ok: true });
   }

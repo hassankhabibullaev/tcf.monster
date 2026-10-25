@@ -1,5 +1,7 @@
 // Before a deploy: the answer keys (public/data/key-co|ce.json, written by the export) go to R2 under private/, where
-// only the Worker reads them (the mock exam's paper builder); the build removes them from the site's files. Both are
+// only the Worker reads them (the mock exam's paper builder); the build removes them from the site's files. The list of
+// the bank's canaries (~/Developer/tcf.monster-data/canary.json, written by scripts/copy-media.mjs at the build) goes
+// with them: the guard's traps (worker/guard.ts). Both are
 // uploaded at every deploy (two small files): a note on this Mac saying « unchanged » could not tell that the bucket
 // lost them, or that another machine deployed. The hashes are still written, for the record.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -23,3 +25,9 @@ for (const section of ["co", "ce"]) {
   writeFileSync(DONE, JSON.stringify(done, null, 2));
   console.log(`upload-keys: key-${section} uploaded`);
 }
+
+const CANARY = join(homedir(), "Developer/tcf.monster-data/canary.json");
+if (!existsSync(CANARY)) { console.error(`upload-keys: no ${CANARY} (run the build first)`); process.exit(1); }
+execFileSync("npx", ["wrangler", "r2", "object", "put", "tcf-monster-files/private/canary.json", "--file", CANARY,
+  "--content-type", "application/json", "--remote", "-c", "wrangler.app.jsonc"], { cwd: ROOT, stdio: "inherit" });
+console.log("upload-keys: canary list uploaded");

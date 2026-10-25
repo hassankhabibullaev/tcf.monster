@@ -1,12 +1,13 @@
 // The free plan's daily limits cannot be spent by one script or one account (2026-10-24): the hold line stops only
 // new starts, the practice calendar's rows per bundle, starts counted apart, a site-wide and a per-network cap on codes.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { setup, teardown, type QA, type Row } from "./helpers.ts";
+import { setup, teardown, examAssets, type QA, type Row } from "./helpers.ts";
 import type { Event } from "../../shared/progress.ts";
 import { resetLimits } from "../../worker/util.ts";
 
 let qa: QA, cookie: string;
-beforeEach(async () => { qa = setup(); cookie = await qa.signUp("a@b.com"); });
+// the exam files come from the helpers, not from a build (a fresh checkout has no dist/data)
+beforeEach(async () => { qa = setup(); (qa.env as Row).ASSETS = examAssets(); cookie = await qa.signUp("a@b.com"); });
 afterEach(teardown);
 
 const now = () => Math.floor(Date.now() / 1000);

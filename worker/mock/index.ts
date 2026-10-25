@@ -4,7 +4,7 @@
 // results are computed when the four exist. Every route runs inside the simulator's request context (the person,
 // their language). A mock needs a working Gemini key; the key lives in the person's browser, which checks it before
 // a sitting opens (web/app/mock/MockPage.tsx).
-import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD, readJson, claimStart, releaseStart } from "../util.ts";
+import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, holdReached, readJson, claimStart, releaseStart } from "../util.ts";
 import type { Me } from "../auth.ts";
 import { isOwnerEmail } from "../access.ts";
 import { guardAmount } from "../guard.ts";
@@ -208,10 +208,9 @@ async function route(req: Request, env: Env, me: Me, path: string, url: URL): Pr
     if (attempt) return json({ error: "attempt_running", attempt }, 409);
     const session = await env.DB.prepare("SELECT id, section FROM expr_sessions WHERE user_id = ? AND status = 'in_progress' AND mock_id IS NULL AND started_at >= ? ORDER BY started_at DESC LIMIT 1").bind(me.id, new Date(Date.now() - SESSION_BLOCK_MS).toISOString()).first<{ id: string; section: string }>();
     if (session) return json({ error: "session_running", session }, 409);
-    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
-    if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
+    if (await holdReached(env)) return json({ error: "hold" }, 503);
     const { row: slot, today } = await claimStart(env, me.id, "mock");
-    const stopped = await guardAmount(env, me, "starts", today);
+    const stopped = await guardAmount(env, me, "starts", today, req);
     if (stopped) { await releaseStart(env, slot); return stopped; }
     // the paper: the whole bank by the quotas, never a question of a previous mock while there are fresh ones
     const [keyCo, keyCe, previous] = await Promise.all([loadKey(env, "co"), loadKey(env, "ce"), env.DB.prepare("SELECT paper_json, topics_json FROM mocks WHERE user_id = ? ORDER BY started_at").bind(me.id).all<{ paper_json: string; topics_json: string }>()]);

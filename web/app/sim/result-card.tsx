@@ -70,8 +70,8 @@ export function ResultCard({ score20, nclc, rows, tips, notes, onReplay, pending
           const lv = r.score == null ? null : cefrOf(r.score);
           return (
             <div key={r.name} className="rc-row">
-              <span className="rc-name">{r.name}</span>
-              <div className="rc-bar" role="img" aria-label={lv ? `${r.name}: ${lv.id}, ${w.levelStatus[lv.id]}` : `${r.name}: ${w.waiting}`}>
+              <span className="rc-name">{w.criterion[r.name] ?? r.name}</span>
+              <div className="rc-bar" role="img" aria-label={lv ? `${w.criterion[r.name] ?? r.name}: ${lv.id}, ${w.levelStatus[lv.id]}` : `${w.criterion[r.name] ?? r.name}: ${w.waiting}`}>
                 <div className="rc-levels">
                   {CEFR_LEVELS.map((l) => (
                     <span key={l.id} data-level={l.id} style={{ flexGrow: span(l) }} />
@@ -89,7 +89,7 @@ export function ResultCard({ score20, nclc, rows, tips, notes, onReplay, pending
             <div className="rc-tips-title">{w.tipsTitle}</div>
             {tips.map((t, i) => (
               <div key={i} className="rc-tip">
-                <span className="rc-tag" data-kind={t.kind}>{t.label}</span>
+                <span className="rc-tag" data-kind={t.kind}>{w.tipLabel[t.label] ?? t.label}</span>
                 <span>
                   {t.kind !== "next" && (
                     <>

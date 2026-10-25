@@ -6,7 +6,7 @@
 import { peek, cached, isFresh } from "../api-cache.ts";
 import { flush, pendingCount } from "../coce/store.ts";
 import { useEffect, useState } from "react";
-import { Mark, Icon, Chip, Info, type Section } from "../../ui/ui.tsx";
+import { Mark, Icon, Chip, Info, Button, type Section } from "../../ui/ui.tsx";
 import { linkProps } from "../../ui/router.ts";
 import { useT, longDate, type Lang } from "../i18n.ts";
 import { useMe } from "../main.tsx";
@@ -32,6 +32,7 @@ const HW = {
     fSessions: (n: number): string => (n === 1 ? "séance" : "séances"), fMinutes: "min de travail", fHours: (h: number): string => (h > 1 ? "heures de travail" : "heure de travail"), fDays: (n: number): string => (n === 1 ? "jour de pratique" : "jours de pratique"), fStreak: "jours d'affilée",
     goalWord: "objectif", dayWord: "jours", dayWord1: "jour", thisWeek: "cette semaine", sevenDays: "Vos sept derniers jours", inMinutes: "minutes",
     mockPassed: (n: number): string => (n === 1 ? "1 passé" : `${n} passés`), mockLast: "le dernier",
+    failed: "Vos chiffres ne sont pas arrivés.", retry: "Réessayer",
   },
   en: {
     hello: "Bonjour", bang: "!", days1: "You have", days: (n: number): string => (n === 1 ? "1 day" : `${n} days`), today: "Your exam is today",
@@ -43,6 +44,7 @@ const HW = {
     fSessions: (n: number): string => (n === 1 ? "session" : "sessions"), fMinutes: "min of work", fHours: (h: number): string => (h > 1 ? "hours of work" : "hour of work"), fDays: (n: number): string => (n === 1 ? "day of practice" : "days of practice"), fStreak: "days in a row",
     goalWord: "goal", dayWord: "days", dayWord1: "day", thisWeek: "this week", sevenDays: "Your last seven days", inMinutes: "minutes",
     mockPassed: (n: number): string => (n === 1 ? "1 taken" : `${n} taken`), mockLast: "the last",
+    failed: "Your numbers did not arrive.", retry: "Retry",
   },
 };
 const useHW = () => HW[useT().lang];
@@ -60,7 +62,7 @@ function Hello() {
   const { lang } = useT();
   return (
     <>
-      <p className="home-hello desk-only">
+      <p className="home-hello desk-only" role="heading" aria-level={1}>
         <span className="home-hello-hi">{h.hello} {me?.name}{h.bang}</span>{" "}
         {hasDate && target ? <>{n === 0 ? h.today : <>{h.days1} <b>{h.days(n!)}</b></>} {h.goal1} <b>NCLC {target}</b></>
           : hasDate ? <>{n === 0 ? h.today : <>{h.days1} <b>{h.days(n!)}</b></>} <a className="home-hello-link" {...linkProps("/profile")}>{h.goalNone}</a></>
@@ -70,7 +72,7 @@ function Hello() {
       {/* the phone: the greeting with the goal and the date under it, the days left as one big number at the right */}
       <div className="home-hello-m mob-only">
         <div className="home-hello-m-text">
-          <p className="home-hello-m-hi">{h.hello} {me?.name}</p>
+          <p className="home-hello-m-hi" role="heading" aria-level={1}>{h.hello} {me?.name}</p>
           <a className="home-hello-m-sub" {...linkProps("/profile")}>
             {target ? `${h.goalWord} NCLC ${target}` : h.goalNone}{me?.exam_date ? ` · ${longDate(me.exam_date, lang)}` : ""}
           </a>
@@ -217,25 +219,32 @@ export function Home() {
   const { me } = useMe();
   // the numbers kept in this browser show at once; the server is asked only when they may be out of date
   const [stats, setStats] = useState<Stats | null>(() => peek<Stats>("/me/stats"));
+  // the numbers could not be had and none were kept: one line and Réessayer instead of grey blocks for ever
+  const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     if (!me) return;
     // practice answers still waiting in this browser go first, so the numbers count them
     if (isFresh("/me/stats") && !pendingCount()) return;
+    setFailed(false);
     (pendingCount() ? flush().catch(() => null) : Promise.resolve())
       .then(() => cached<Stats>("/me/stats"))
       .then(setStats)
-      .catch(() => null);
-  }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(() => setFailed(true));
+  }, [me?.id, tries]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lost = failed && !stats;
   const target = me?.target_nclc ?? null;
   return (
     <div className="home">
       <Hello />
       <section className="card ha-weeks">
         <h2><span className="desk-only">{t.activityTitle}</span><span className="mob-only">{h.sevenDays}</span><span className="ha-weeks-now mob-only">{h.inMinutes}</span></h2>
-        {stats ? <div className="weeks-row"><Weeks activity={stats.activity} work={stats.work} lang={lang} /><Facts f={stats.facts} /></div> : <div className="skeleton" style={{ height: 100 }} />}
+        {stats ? <div className="weeks-row"><Weeks activity={stats.activity} work={stats.work} lang={lang} /><Facts f={stats.facts} /></div>
+          : lost ? <div className="ha-failed" role="alert"><span>{h.failed}</span><Button size="sm" icon="refresh" onClick={() => setTries((n) => n + 1)}>{h.retry}</Button></div>
+          : <div className="skeleton" style={{ height: 100 }} />}
       </section>
       <div className="ha-grid">
-        {!stats ? [0, 1, 2, 3].map((i) => <div key={i} className="skeleton ha-skel" />) : SECTIONS.map((s) => <Card key={s} s={s} stats={stats} target={target} />)}
+        {!stats ? (lost ? null : [0, 1, 2, 3].map((i) => <div key={i} className="skeleton ha-skel" />)) : SECTIONS.map((s) => <Card key={s} s={s} stats={stats} target={target} />)}
       </div>
       {stats && <MockCard mocks={stats.mocks} />}
       <DonateCard />

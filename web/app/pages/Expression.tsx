@@ -102,7 +102,6 @@ export function useStart(s: S) {
     } catch (e) {
       const d = e instanceof ApiError ? e.data : {};
       if (d.error === "hold") say(t.hold, "bad");
-      else if (d.error === "daily_cap") say(t.dailyCap, "bad");
       else if (d.error === "mock_running") say(t.mockRunning, "bad");
       else say(d.error === "network" ? t.networkError : t.serverError, "bad");
     } finally { setBusy(false); }
@@ -197,13 +196,13 @@ function Practice({ s }: { s: S }) {
         <p className="x-lead">{w.simLead(s)}</p>
         <div className="picks x-ways" role="radiogroup" aria-label={w.what}>
           {(["exam", "task"] as const).map((k) => (
-            <div key={k} className="pick x-way" role="radio" aria-checked={way === k} tabIndex={0} data-open={opened === k || undefined} onClick={() => setWay(k)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWay(k); } }}>
+            <div key={k} className="pick x-way" role="radio" aria-checked={way === k} aria-label={k === "exam" ? w.full : w.one} tabIndex={0} data-open={opened === k || undefined} onClick={() => setWay(k)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setWay(k); } }}>
               <span className="x-way-tile mob-only num" aria-hidden="true">{k === "exam" ? w.fullTile : w.oneTile}</span>
               <span className="x-way-text">
                 <b>{k === "exam" ? w.full : w.one}</b>
                 <span className="desk-only">{k === "exam" ? w.fullSub(s) : w.oneSub(s)}</span>
                 <span className="mob-only x-way-sub">{k === "exam" ? w.fullSubShort(s) : w.oneSubShort(s)}</span>
-                <button type="button" className="x-way-more mob-only" aria-expanded={opened === k} aria-label={w.moreWhy} onClick={(e) => { e.stopPropagation(); setOpened((o) => (o === k ? null : k)); }}>{k === "exam" ? w.fullLine : w.oneLine}<Icon name="chevronDown" size={14} /></button>
+                <button type="button" className="x-way-more mob-only" aria-expanded={opened === k} onClick={(e) => { e.stopPropagation(); setOpened((o) => (o === k ? null : k)); }}>{k === "exam" ? w.fullLine : w.oneLine}<Icon name="chevronDown" size={14} /></button>
                 <p>{k === "exam" ? w.fullWhy(s) : w.oneWhy(s)}</p>
               </span>
               <span className="x-way-check mob-only" aria-hidden="true">{way === k && <Icon name="check" size={13} />}</span>
@@ -256,7 +255,8 @@ function Setup({ s, way }: { s: S; way: "exam" | "task" }) {
   const [task, setTask] = useState<TaskNo | null>(null);
   const taches = useMemo<TaskNo[]>(() => (way === "exam" ? [1, 2, 3] : task ? [task] : []), [way, task]);
   const ready = taches.length > 0;
-  const mins = taches.reduce((a, n) => a + (s === "ee" ? WRITING_MIN[n] : SPEAKING_MIN[n]), 0);
+  // the three writing tasks together keep the official 60 min (one clock); otherwise the tasks' own times add up
+  const mins = s === "ee" && taches.length === 3 ? 60 : taches.reduce((a, n) => a + (s === "ee" ? WRITING_MIN[n] : SPEAKING_MIN[n]), 0);
 
   const savedMode = (me?.settings?.eo?.mode === "ptt" ? "ptt" : "live") as MicMode;
   const [mode, setMode] = useState<MicMode>(savedMode);
@@ -288,7 +288,7 @@ function Setup({ s, way }: { s: S; way: "exam" | "task" }) {
         <BackLink to={`/${s}/practice`} label={t.tabPractice} />
         <div className="setup-head">
           <h1 className="setup-title">{way === "exam" ? w.full : w.one}</h1>
-          <p className="setup-sub mob-only num"><b>{s.toUpperCase()}</b> · <MonsterAI /> · {w.minutes(way === "exam" ? mins : (task ? mins : 0)) }</p>
+          <p className="setup-sub mob-only num"><b>{s.toUpperCase()}</b> · <MonsterAI /> · {way === "exam" || task ? w.minutes(mins) : "—"}</p>
           <p className="setup-brand desk-only"><MonsterAI powered lang={lang} /></p>
           <p className="x-lead desk-only">{way === "exam" ? w.leadExam : w.leadTask(s)}</p>
         </div>
@@ -324,7 +324,7 @@ function Setup({ s, way }: { s: S; way: "exam" | "task" }) {
             </>
           );
           return way === "task" ? (
-            <div key={n} className="card setup-task" role="radio" aria-checked={on} tabIndex={0} onClick={() => setTask(n)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTask(n); } }}>{body}</div>
+            <div key={n} className="card setup-task" role="radio" aria-checked={on} aria-label={`Tâche ${n} · ${w.taskName[s][n]}`} tabIndex={0} onClick={() => setTask(n)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTask(n); } }}>{body}</div>
           ) : (
             <div key={n} className="card setup-task" data-on="">{body}</div>
           );

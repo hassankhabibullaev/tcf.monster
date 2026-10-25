@@ -2,8 +2,9 @@
 // events the browser already applied and stores the result (docs/COCE.md §2). The rules are shared/progress.ts, the
 // same file the browser runs. Free plan: one row write per (section, level) touched, one per practice day touched,
 // counted in `budget`; past the hold line the answer is { hold: true } and the browser keeps its queue.
-import { type Env, json, fail, nowIso, day, addWrites, BUDGET_HOLD, readText } from "../util.ts";
+import { type Env, json, fail, nowIso, day, addWrites, holdReached, readText } from "../util.ts";
 import type { Me } from "../auth.ts";
+import { isCanaryId, noteBeat, trapped } from "../guard.ts";
 import { type Event, type Level, type Section, type State, LEVELS, apply, emptyState } from "../../shared/progress.ts";
 
 /** longest bundle read (bytes) and most events taken from one */
@@ -113,9 +114,14 @@ export async function handleSync(req: Request, env: Env, me: Me): Promise<Respon
   const events = shiftBundle(body.events.slice(0, MAX_EVENTS).map(cleanEvent).filter((e): e is SyncEvent => e !== null), nowSec).filter((e) => e.t >= MIN_T);
   if (!events.length) return json({ ok: true, applied: 0 });
 
+  // the guard (worker/guard.ts): a question no page shows answered is a program; answers at a machine's even beat a sign
+  const canary = await isCanaryId(env, events.flatMap((e) => ("qid" in e && e.qid ? [e.qid] : [])));
+  if (canary) return trapped(env, req, `canary question answered (${canary})`, me);
+  const beat = await noteBeat(env, me, req, events.filter((e) => e.type === "answer").map((e) => e.t));
+  if (beat) return beat;
+
   // the day's write budget, before anything is written
-  const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
-  if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ hold: true });
+  if (await holdReached(env)) return json({ hold: true });
 
   // read, apply, write back only where the row is still what was read: a second tab writing the same level at the same
   // moment makes that level go round again (applying an event twice changes nothing), so no bundle is lost

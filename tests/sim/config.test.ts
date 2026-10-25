@@ -18,7 +18,7 @@ describe("task selection", () => {
 
 describe("timing adjusts to the subset", () => {
   it("writing: 10, 15 and 25 minutes per task, 50 for all three", () => {
-    expect(writingTotalSeconds([1, 2, 3])).toBe(50 * 60);
+    expect(writingTotalSeconds([1, 2, 3])).toBe(60 * 60);
     expect(writingTotalSeconds([1, 2])).toBe(25 * 60);
     expect(writingTotalSeconds([2, 3])).toBe(40 * 60);
     expect(writingTotalSeconds([1])).toBe(10 * 60);

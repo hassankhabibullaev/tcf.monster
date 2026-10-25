@@ -5,7 +5,7 @@
 //   tcf.monster/about     the public site, always (the app's wordmark leads there)
 //   /terms /privacy /thanks  the site's pages; any other address is the application
 //   app.tcf.monster, www.tcf.monster  the same path on tcf.monster, for good (301; 308 for a write)
-import { type Env, fail, json, day, BUDGET_HOLD, addWrites } from "./util.ts";
+import { type Env, fail, json, holdReached, addWrites } from "./util.ts";
 import { handleAdmin } from "./admin.ts";
 import { handleAuth, currentUser, type Me } from "./auth.ts";
 import { handleMe } from "./me.ts";
@@ -16,7 +16,7 @@ import { handleProgress, handleSync } from "./coce/progress.ts";
 import { handleAttempts } from "./coce/attempts.ts";
 import { handleDisputes } from "./coce/disputes.ts";
 import { handleData } from "./coce/guard.ts";
-import { guardRequest } from "./guard.ts";
+import { guardRequest, quietHeaders, trapped, TRAPS } from "./guard.ts";
 import { handleExpr, handleKey } from "./expr.ts";
 import { handleMock } from "./mock/index.ts";
 import { handleTopics } from "./content.ts";
@@ -96,6 +96,8 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
   const path = url.pathname.slice(4); // after "/api"
   if (path === "/donate") return handleDonate(req, env); // answers the public site too (its own CORS and preflight)
   if (writes(req.method) && !sameOrigin(req, url)) return fail(403, "cross-site");
+  // the app's hidden button (no person can see or reach it): a program pressing everything
+  if (TRAPS.has(url.pathname)) return trapped(env, req, "the app's hidden button");
   if (path.startsWith("/admin/")) return door(url.hostname) === "admin" ? handleAdmin(req, env, url) : fail(404, "not found");
   if (door(url.hostname) !== "app") return fail(404, "not found");
   if (path === "/mail/stop") return handleStop(req, env, url);
@@ -108,17 +110,23 @@ async function api(req: Request, env: Env, url: URL): Promise<Response> {
     if (stopped) return stopped;
     // past the day's hold line nothing new starts (exams, sessions, mocks, reports); what already runs goes on to its
     // end and its marks, and /sync answers { hold } itself (the browser keeps its queue)
-    if (req.method === "POST" && STARTS.has(path)) {
-      const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
-      if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
-    }
-    if (path === "/sync") return handleSync(req, env, me);
+    if (req.method === "POST" && STARTS.has(path) && (await holdReached(env))) return json({ error: "hold" }, 503);
+    if (path === "/sync") return withQuiet(await handleSync(req, env, me), env, me);
     const res = await signedIn(req, env, url, path, me);
     // every change counts toward the day's hold line (an estimate: some write a few rows, some none)
     if (writes(req.method) && res.ok) await addWrites(env, 1);
-    return res;
+    return withQuiet(res, env, me);
   }
   return fail(404, "not found");
+}
+
+/** a response that also asks the page for today's invisible check (worker/guard.ts), while the session has not passed it */
+function withQuiet(res: Response, env: Env, me: Me): Response {
+  const h = quietHeaders(env, me);
+  if (!Object.keys(h).length) return res;
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(h)) out.headers.set(k, v);
+  return out;
 }
 
 /** the POSTs that start something new: refused past the day's hold line */

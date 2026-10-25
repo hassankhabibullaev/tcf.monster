@@ -19,8 +19,9 @@ function load(): Promise<TS> {
   return loading;
 }
 
-/** one fresh token for `action` (each token is good once) */
-export async function humanToken(sitekey: string, action: string, lang: string, slot?: HTMLElement | null): Promise<string> {
+/** one fresh token for `action` (each token is good once); `appearance` "always" shows the box from the start (the
+ *  guard's check, a strict network), "interaction-only" only when Cloudflare wants a click */
+export async function humanToken(sitekey: string, action: string, lang: string, slot?: HTMLElement | null, appearance: "always" | "interaction-only" = "interaction-only"): Promise<string> {
   const ts = await load();
   const box = document.createElement("div");
   box.className = slot ? "ts-in" : "ts-box";
@@ -30,7 +31,7 @@ export async function humanToken(sitekey: string, action: string, lang: string, 
     const timer = setTimeout(() => { done(); reject(new Error("turnstile")); }, 120_000);
     const done = () => { clearTimeout(timer); setTimeout(() => { try { ts.remove(id); } catch { /* gone */ } box.remove(); }, 0); };
     id = ts.render(box, {
-      sitekey, action, language: lang, appearance: "interaction-only",
+      sitekey, action, language: lang, appearance,
       callback: (t: string) => { done(); resolve(t); },
       "error-callback": () => { done(); reject(new Error("turnstile")); },
       "expired-callback": () => { done(); reject(new Error("turnstile")); },

@@ -4,6 +4,8 @@ import { expect, vi } from "vitest";
 import worker from "../../worker/index.ts";
 import { makeEnv } from "../../scripts/local-env.ts";
 import { resetLimits } from "../../worker/util.ts";
+import { resetGuardCounts, resetCanaries } from "../../worker/guard.ts";
+import { resetNetworks } from "../../worker/networks.ts";
 import type { Env } from "../../worker/util.ts";
 
 export type Row = Record<string, any>;
@@ -23,7 +25,7 @@ export function setup(extra: Partial<Env> = {}) {
   /** what Google answers to the simulator and the key check; a test replaces it */
   const google = { handler: (_url: string, _init?: RequestInit): Response | Promise<Response> => new Response(JSON.stringify({ models: [{ name: "models/gemini-2.5-flash" }] }), { status: 200, headers: { "content-type": "application/json" } }) };
   const stripe = { handler: (_init?: RequestInit): Response | Promise<Response> => new Response(JSON.stringify({ id: "cs_1", url: "https://checkout.stripe.com/c/pay/cs_1" }), { status: 200 }) };
-  resetLimits();
+  resetLimits(); resetGuardCounts(); resetCanaries(); resetNetworks();
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
     if (url.startsWith("https://api.resend.com")) {

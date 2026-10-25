@@ -2,7 +2,7 @@
 // runs inside the simulator's request context (worker/sim/ctx.ts): the signed-in person and their language. The
 // person's key, what they write and say, and the corrections stay in their browser (web/app/sim/browser-score.ts,
 // work.ts): the server holds the sessions, the subjects and the marks, and never calls Google.
-import { type Env, json, fail, nowIso, readJson, day, daysAgoIso, addWrites, BUDGET_HOLD, claimStart, releaseStart } from "./util.ts";
+import { type Env, json, fail, nowIso, readJson, day, daysAgoIso, addWrites, holdReached, claimStart, releaseStart } from "./util.ts";
 
 import type { Me } from "./auth.ts";
 import { runningMock, toMockRow } from "./mock/row.ts";
@@ -81,13 +81,12 @@ async function route(req: Request, env: Env, me: Me, path: string, url: URL): Pr
     const ids: Partial<Record<TaskNo, number>> = {};
     if (b.topicIds && typeof b.topicIds === "object") for (const [k, v] of Object.entries(b.topicIds as Record<string, unknown>)) if ([1, 2, 3].includes(Number(k)) && Number.isInteger(Number(v))) ids[Number(k) as TaskNo] = Number(v);
     // free-plan guard: the day's write budget (shared with progress) and a per-person cap on sessions
-    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
-    if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
+    if (await holdReached(env)) return json({ error: "hold" }, 503);
     // never while a mock exam runs (docs/MOCK-EXAM.md §7)
     const mock = await runningMock(env, me.id);
     if (mock) return json({ error: "mock_running", mock: toMockRow(mock) }, 409);
     const { row: slot, today } = await claimStart(env, me.id, "session");
-    const stopped = await guardAmount(env, me, "starts", today);
+    const stopped = await guardAmount(env, me, "starts", today, req);
     if (stopped) { await releaseStart(env, slot); return stopped; }
     const started = await startSession({ section, kind, taches: kind === "exam" ? [1, 2, 3] : b.taches, topicIds: ids, mode }).catch(async (e) => { await releaseStart(env, slot); throw e; });
     await addWrites(env, 2 + started.tasks.length);

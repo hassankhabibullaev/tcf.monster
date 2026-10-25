@@ -48,6 +48,8 @@ async function cleanup(env: Env): Promise<JobResult> {
     env.DB.prepare("DELETE FROM bank_reads WHERE day < ?").bind(cut(2).slice(0, 10)),
     env.DB.prepare("DELETE FROM usage WHERE day < ?").bind(cut(3).slice(0, 10)),
     env.DB.prepare("DELETE FROM guard_events WHERE at < ?").bind(cut(90)),
+    // networks a bot was caught on, once neither date holds any more (worker/networks.ts)
+    env.DB.prepare("DELETE FROM guard_networks WHERE coalesce(strict_until, '') < ?1 AND coalesce(closed_until, '') < ?1").bind(nowIso()),
     env.DB.prepare("DELETE FROM budget WHERE day < ?").bind(cut(30).slice(0, 10)),
     env.DB.prepare("DELETE FROM job_log WHERE at < ?").bind(cut(60)),
     env.DB.prepare("DELETE FROM mail WHERE at < ?").bind(cut(90)),

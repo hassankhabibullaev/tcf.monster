@@ -1,7 +1,8 @@
 // « Signaler un problème » on a practice question (docs/COCE.md §2): POST /api/disputes stores one row with the
 // person's message; GET /api/disputes?section=&level= lists the ids of the questions they already reported in that
 // level, so the button says « Signalé ». Free plan: one row a report, at most 20 a person a day, none past the hold.
-import { type Env, json, fail, nowIso, day, daysAgoIso, readJson, addWrites, BUDGET_HOLD } from "../util.ts";
+import { type Env, json, fail, nowIso, day, daysAgoIso, readJson, addWrites, holdReached } from "../util.ts";
+import { isCanaryId, trapped } from "../guard.ts";
 import type { Me } from "../auth.ts";
 import { LEVELS } from "../../shared/progress.ts";
 
@@ -28,11 +29,13 @@ export async function handleDisputes(req: Request, env: Env, me: Me, url: URL): 
   const message = typeof b.message === "string" ? b.message.trim() : "";
   if (!message) return fail(400, "message");
   if (message.length > MAX_MESSAGE) return fail(400, "too_long");
-  const [spent, mine] = await Promise.all([
-    env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>(),
+  // a report on a question no page shows (worker/guard.ts): a program
+  if (await isCanaryId(env, [b.questionId])) return trapped(env, req, `canary question reported (${b.questionId})`, me);
+  const [hold, mine] = await Promise.all([
+    holdReached(env),
     env.DB.prepare("SELECT COUNT(*) n FROM disputes WHERE user_id = ? AND created_at >= ?").bind(me.id, daysAgoIso(1)).first<{ n: number }>(),
   ]);
-  if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
+  if (hold) return json({ error: "hold" }, 503);
   if ((mine?.n ?? 0) >= DISPUTES_PER_DAY) return json({ error: "daily_cap" }, 429);
   const r = await env.DB.prepare("INSERT INTO disputes (user_id, section, level, question_id, n, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .bind(me.id, b.section, b.level, b.questionId, n, message, nowIso()).run();

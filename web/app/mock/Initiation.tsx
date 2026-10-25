@@ -31,7 +31,7 @@ export function Initiation() {
     } catch (e) {
       const d = e instanceof MockApiError ? e.data : {};
       if (e instanceof MockApiError && e.status === 409 && d.error === "running" && d.mock) { replace(`/mock/${(d.mock as { id: number }).id}`); return; }
-      say(d.error === "hold" ? t.hold : d.error === "daily_cap" ? w.oneADay : d.error === "attempt_running" ? w.busyAttempt : d.error === "session_running" ? w.busySession : d.error === "network" ? t.networkError : w.failed, "bad");
+      say(d.error === "hold" ? t.hold : d.error === "attempt_running" ? w.busyAttempt : d.error === "session_running" ? w.busySession : d.error === "network" ? t.networkError : w.failed, "bad");
     } finally { setBusy(false); }
   }
   const askNotif = async () => { try { setNotif(await Notification.requestPermission()); } catch { /* refused */ } };

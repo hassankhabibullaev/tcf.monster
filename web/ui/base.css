@@ -240,3 +240,9 @@ svg { display: block; flex: none; }
   .lang { --lang-s: 36px; }
   /* shared:brand-phone end */
 }
+
+/* pinch-zoom stays allowed (people who need larger text); iPhones zoom into any field under 16 px when it gets the
+   focus, so on iOS the fields are 16 px (the only place this rule applies) */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select { font-size: max(16px, 1em) !important; }
+}

@@ -1,6 +1,6 @@
 // The mock exam page (docs/MOCK-EXAM.md §1.1): one card — three lines and Commencer, which opens the initiation page —
 // then the past mocks, newest first, each opening its results, each deletable. Locked without a Gemini key; while a
-// mock runs the card says so with Reprendre and Abandonner; after a mock today the button is shut.
+// mock runs the card says so with Reprendre and Abandonner; a mock may start whenever none runs.
 import { useEffect, useState } from "react";
 import { BackLink, Button, Chip, Empty, Icon, Sheet, MonsterAI } from "../../ui/ui.tsx";
 import { go, linkProps } from "../../ui/router.ts";
@@ -28,8 +28,6 @@ export function MockPage() {
   useEffect(() => { load(); }, []);
   if (me?.gemini_status === "none") return <div className="section-page mk-page"><h1 className="mk-h1">{w.title}</h1><Locked /></div>;
 
-  const today = (mocks ?? []).some((m) => Date.now() - Date.parse(m.startedAt) < 24 * 3600_000);
-  const capped = today && !me?.isOwner && !running;
   const pos = running ? currentStage(running) : null;
   const test = pos ? testOfStage(pos.stage) : null;
   const ends = pos ? stageEndsAt(pos) : null;
@@ -70,8 +68,7 @@ export function MockPage() {
             <ul className="mk-hero-lines desk-only"><li>{w.lead1}</li><li>{w.lead2}</li><li>{w.lead3}</li></ul>
             <p className="mk-hero-short mob-only">{w.leadShort}</p>
             <div className="mk-hero-acts">
-              <Button kind="primary" disabled={capped} onClick={() => go("/mock/new")}>{w.start}<Icon name="chevronRight" size={18} className="mob-only" /></Button>
-              {capped && <span className="muted small">{w.oneADay}</span>}
+              <Button kind="primary" onClick={() => go("/mock/new")}>{w.start}<Icon name="chevronRight" size={18} className="mob-only" /></Button>
             </div>
           </>
         )}

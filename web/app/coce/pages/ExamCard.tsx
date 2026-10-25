@@ -12,7 +12,7 @@ import { longDate, type Lang } from "../../i18n.ts";
 import { api } from "../../api.ts";
 import { WORDS } from "./words.ts";
 import { Nclc } from "./SectionPage.tsx";
-import { countdown, dayOf, deleteAttempt, finishAttempt, isRunning, noteRunning, resultPath, sallePath, serverNow, toMs, useRunning, DURATION_MIN, EXAM_QUESTIONS, type AttemptMode, type AttemptRow, type CoceSection } from "./shared.ts";
+import { armStart, countdown, dayOf, deleteAttempt, finishAttempt, isRunning, noteRunning, resultPath, sallePath, serverNow, toMs, useRunning, DURATION_MIN, EXAM_QUESTIONS, type AttemptMode, type AttemptRow, type CoceSection } from "./shared.ts";
 
 export type ExamCardProps = {
   section: CoceSection; exam: number; lang: Lang;
@@ -92,7 +92,7 @@ export function ExamCard({ section, exam, lang }: ExamCardProps) {
               <li className="cp-mode-clock"><Icon name="clock" size={14} />{w.lineClock}</li>
             </ul>
             <p className="cp-hero-line desk-only">{w.lineClock}</p>
-            <Button kind="primary" className="cp-hero-start" disabled={!loaded} onClick={() => go(sallePath({ section, exam, mode }))}>{w.start}</Button>
+            <Button kind="primary" className="cp-hero-start" disabled={!loaded} onClick={() => { armStart(section, exam); go(sallePath({ section, exam, mode })); }}>{w.start}</Button>
           </>
         )}
       </section>

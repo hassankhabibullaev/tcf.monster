@@ -15,11 +15,12 @@ type Detail = {
   attempts: Attempt[]; expression: Expr[]; practice: Practice[]; answeredToday: number; disputes: Report[];
   /** question-bank files opened (worker/coce/guard.ts) */
   bank: Record<"data", { today: number; week: number }>;
-  /** what the abuse guard did (worker/guard.ts), newest first, and today's counted requests and changes */
-  guard: { events: { at: string; kind: string; detail: string | null }[]; today: { requests: number; writes: number } };
+  /** what the abuse guard did (worker/guard.ts), newest first, today's counted requests and changes, and the signs of
+   *  a machine seen in the last seven days with the score they make (the check at askAt, a block at blockAt) */
+  guard: { events: { at: string; kind: string; detail: string | null }[]; today: { requests: number; writes: number }; score: number; askAt: number; blockAt: number; signs: { sign: string; label: string; weight: number; at: string }[] };
 };
 
-const GUARD_CHIP: Record<string, [Tone, string]> = { challenged: ["amber", "human check asked"], passed: ["ok", "check passed"], failed: ["bad", "check failed"], blocked: ["bad", "blocked"], unblocked: ["ok", "unblocked"] };
+const GUARD_CHIP: Record<string, [Tone, string]> = { challenged: ["amber", "human check asked"], passed: ["ok", "check passed"], failed: ["amber", "check failed"], sign: ["amber", "sign"], blocked: ["bad", "blocked"], unblocked: ["ok", "unblocked"] };
 
 const KEY_CHIP: Record<string, [Tone, string]> = { ok: ["ok", "working"], error: ["bad", "rejected"], quota: ["amber", "limit"], none: ["new", "none"] };
 
@@ -120,7 +121,7 @@ export function Person({ id }: { id: string }) {
     "reset-progress": { title: "Reset progress?", body: "Practice colours, exam attempts and results are deleted for what you choose. This cannot be undone.", button: "Reset", danger: true },
     block: { title: `Block ${u.name ?? "this person"}?`, body: "Every device is signed out and signing in is refused until you unblock.", button: "Block", danger: true },
     unblock: { title: `Unblock ${u.name ?? "this person"}?`, body: "They can sign in again; today's counts and any pending human check start from zero.", button: "Unblock", danger: false },
-    delete: { title: "Delete this account?", body: "The account and everything in it go: progress, results, key, devices. This cannot be undone.", button: "Delete account", danger: true },
+    delete: { title: "Delete this account?", body: "The account and everything in it go: progress, results, sessions, devices. This cannot be undone.", button: "Delete account", danger: true },
   } as const;
   const s = act ? sheet[act] : null;
 
@@ -202,6 +203,21 @@ export function Person({ id }: { id: string }) {
             <div className="card-head"><h2>Guard</h2><span className="muted">{d.guard.events.length}</span></div>
             {u.human_needed_at && <p><Chip tone="amber" dot>human check pending</Chip> <span className="muted">{when(u.human_needed_at)}: {u.human_reason}</span></p>}
             {u.human_until && Date.parse(u.human_until) > Date.now() && <p><Chip tone="ok" dot>passed</Chip> <span className="muted">until {when(u.human_until)}</span></p>}
+            <p>
+              <Chip tone={d.guard.score >= d.guard.blockAt ? "bad" : d.guard.score >= d.guard.askAt ? "amber" : "ok"} dot>score {d.guard.score} / {d.guard.blockAt}</Chip>{" "}
+              <span className="muted">check at {d.guard.askAt}, block at {d.guard.blockAt}</span>
+            </p>
+            {d.guard.signs.length > 0 && (
+              <ul className="list">
+                {d.guard.signs.map((s) => (
+                  <li key={s.sign} className="list-row">
+                    <span className="nowrap muted">{when(s.at)}</span>
+                    <span className="ellipsis">{s.label}</span>
+                    <Chip tone={s.weight >= 100 ? "bad" : "amber"}>+{s.weight}</Chip>
+                  </li>
+                ))}
+              </ul>
+            )}
             {d.guard.events.length ? (
               <ul className="list">
                 {d.guard.events.map((e, i) => (

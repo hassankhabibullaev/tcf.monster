@@ -1,7 +1,7 @@
 // The signed-in person's own account: read it, change it (profile, preferences), sign out everywhere, delete it.
 import { isOwnerEmail } from "./access.ts";
 import { type Env, json, fail, readJson } from "./util.ts";
-import { type Me, sendCode, checkCode, sessionCookie, accountRoom, networkOf } from "./auth.ts";
+import { type Me, sendCode, checkCode, sessionCookie, accountRoom, networkOf, TERMS_VERSION } from "./auth.ts";
 import { maybeWelcome } from "./news.ts";
 import { runningNow } from "./coce/attempts.ts";
 import { sendDesigned } from "./mail.ts";
@@ -10,12 +10,14 @@ type Body = Record<string, unknown>;
 
 export async function profile(env: Env, me: Me) {
   // gemini_status: what the person's browser last reported of their key (the key itself never comes here)
-  const u = await env.DB.prepare(`SELECT id, email, name, created_at, target_nclc, exam_date, lang, settings, gemini_status
+  const u = await env.DB.prepare(`SELECT id, email, name, created_at, target_nclc, exam_date, lang, settings, gemini_status, terms_version
     FROM users WHERE id = ?`).bind(me.id).first<Record<string, unknown>>();
   if (!u) return null;
   let settings = {};
   try { settings = JSON.parse(String(u.settings)); } catch { /* keep {} */ }
-  return { ...u, settings, isOwner: isOwnerEmail(env, String(u.email)) };
+  // terms_ok: the person accepted the terms now in force (a newer version asks the three ticks again, once)
+  const { terms_version, ...rest } = u;
+  return { ...rest, settings, terms_ok: terms_version === TERMS_VERSION, isOwner: isOwnerEmail(env, String(u.email)) };
 }
 
 /** settings are merged one level deep, so two devices changing different switches both win */
@@ -67,6 +69,11 @@ export async function handleMe(req: Request, env: Env, me: Me, path: string): Pr
       if (merged.length > 4000) return fail(400, "settings too large");
       sets.push("settings = ?"); args.push(merged);
     }
+    if ("terms" in b) {
+      // the three ticks given again for the terms now in force
+      if (b.terms !== true) return fail(400, "terms");
+      sets.push("terms_version = ?", "terms_at = ?"); args.push(TERMS_VERSION, new Date().toISOString());
+    }
     if (!sets.length) return fail(400, "nothing to change");
     await env.DB.prepare(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`).bind(...args, me.id).run();
     // the welcome sentence finished (a first name given) is the moment of the welcome mail, once
@@ -93,7 +100,7 @@ export async function handleMe(req: Request, env: Env, me: Me, path: string): Pr
     const who = await env.DB.prepare("SELECT lang FROM users WHERE id = ?").bind(me.id).first<{ lang: string }>();
     const d = env.DB;
     await d.batch([d.prepare("DELETE FROM expr_tasks WHERE session_id IN (SELECT id FROM expr_sessions WHERE user_id = ?)").bind(me.id)]
-      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(me.id)))
+      .concat(["sessions", "progress", "practice_days", "attempts", "expr_sessions", "user_kv", "mocks", "disputes", "starts", "bank_reads", "usage", "guard_events"].map((t) => d.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(me.id)))
       .concat(d.prepare("DELETE FROM codes WHERE email = ?").bind(me.email), d.prepare("DELETE FROM users WHERE id = ?").bind(me.id)));
     // the last mail, once everything is gone (a failed send changes nothing: the account is deleted either way)
     await sendDesigned(env, me.email, "deleted", { lang: who?.lang ?? "en" }).catch((e) => console.error(e));

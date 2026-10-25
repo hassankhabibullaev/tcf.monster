@@ -145,7 +145,7 @@ const MAILS: Record<MailId, (w: Who) => Mail> = {
     const m = build(w);
     return m.shell({ en: "Your tcf.monster account is deleted", fr: "Votre compte tcf.monster est supprimé" }[m.L], { en: "Everything is erased. Good luck with your exam.", fr: "Tout est effacé. Bonne chance pour votre examen." }[m.L], [
       m.band("ink", { en: "Your account is deleted", fr: "Votre compte est supprimé" }),
-      m.text({ en: "Your progress, results, sessions and Gemini key are erased from our servers. Thank you for practising with us.", fr: "Vos progrès, résultats, séances et votre clé Gemini sont effacés de nos serveurs. Merci de vous être entraîné·e avec nous." }),
+      m.text({ en: "Your progress, results and sessions are erased from our servers. Thank you for practising with us.", fr: "Vos progrès, résultats et séances sont effacés de nos serveurs. Merci de vous être entraîné·e avec nous." }),
       m.card({ en: "Changed your mind?", fr: "Vous changez d'avis ?" }, { en: "You can create a new account any time with the same e-mail. It starts empty.", fr: "Vous pouvez créer un nouveau compte quand vous voulez, avec le même e-mail. Il repart de zéro." }, { label: { en: "Create an account", fr: "Créer un compte" }, href: `${SITE}/sign-in` }),
       m.card({ en: "The public chat stays open", fr: "Le chat public reste ouvert" }, { en: "Candidates share the topics that came up and answer each other's questions.", fr: "Les candidats partagent les sujets tombés et répondent aux questions des autres." }, CHAT_BTN),
       m.foot({ en: "You deleted your account on tcf.monster. This is the last e-mail we send you.", fr: "Vous avez supprimé votre compte sur tcf.monster. C'est le dernier e-mail que nous vous envoyons." }, false)]);

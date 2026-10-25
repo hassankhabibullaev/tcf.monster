@@ -8,9 +8,10 @@ const fr = {
   skip: "Aller au contenu", lightMode: "Mode clair", darkMode: "Mode sombre",
   // door
   signInTitle: "Se connecter", email: "E-mail", password: "Mot de passe", show: "Afficher", hide: "Masquer",
-  signIn: "Se connecter", forgot: "Mot de passe oublié ?", createAccount: "Créer votre compte", welcomeBack: "Bon retour", back: "Retour",
+  signIn: "Se connecter", forgot: "Mot de passe oublié ?", codeInstead: "Recevoir un code à la place", createAccount: "Créer votre compte", welcomeBack: "Bon retour", back: "Retour",
   wrongLogin: "E-mail ou mot de passe incorrect.", locked: (t: string) => `Trop d'essais. Réessayez à ${t}.`,
-  blocked: "Ce compte est mis en pause. tcf.monster est gratuit et tenu par des bénévoles : ce compte a envoyé bien plus de demandes que quiconque s'entraîne, ce qui surcharge le site et peut le rendre indisponible pour tout le monde. Écrivez à @tcfmonsteradmin sur Telegram pour le débloquer.",
+  blocked: "Ce compte est mis en pause. tcf.monster est gratuit et tenu par des bénévoles : ce compte s'est comporté comme un programme automatique, ce qui surcharge le site et peut le rendre indisponible pour tout le monde. Si c'est une erreur, écrivez à @tcfmonsteradmin sur Telegram pour le débloquer.",
+  paused: "Les nouveaux comptes depuis ce réseau sont en pause pour quelques jours : des programmes automatiques en sont venus. Essayez depuis un autre réseau, ou écrivez à @tcfmonsteradmin sur Telegram.",
   pitchTitle: "Tout le TCF Canada, gratuitement.",
   pitch1: "Les quatre épreuves : compréhension orale et écrite, expression écrite et orale.",
   pitch2: "Les conditions de l'examen, ou de l'aide quand vous le voulez.",
@@ -36,6 +37,7 @@ const fr = {
   // welcome sentence
   welcome1: "Je m'appelle", welcome2: ", je vise le", welcome3: "et je passe l'examen le", welcome3and: "et", welcome3none: "je ne suis pas encore inscrit·e",
   firstName: "prénom", pickDate: "choisir une date", notRegistered: "Pas encore inscrit·e", prevMonth: "Mois précédent", nextMonth: "Mois suivant",
+  termsAgain: "Nos conditions d'utilisation ont changé",
   letsGo: "C'est parti", stepOf: (n: number) => `${n} sur 3`,
   // home
   sectionNames: { co: "Compréhension orale", ce: "Compréhension écrite", ee: "Expression écrite", eo: "Expression orale" }, setDate: "Choisir une date",
@@ -74,7 +76,7 @@ const fr = {
   keyRemoveTitle: "Retirer la clé ?", keyRemoveBody: "Monster AI s'arrête sur cet appareil jusqu'à ce qu'une clé y soit collée à nouveau (la même, ou une autre de Google AI Studio).",
   // the room
   roomNotFound: "Cette séance n'existe pas.", leave: "Quitter",
-  mockRunning: "Un examen blanc est en cours : terminez-le d'abord.", hold: "Le site a atteint sa limite du jour. Revenez demain.", examCap: "Six examens aujourd'hui, c'est le maximum. À demain !", dailyCap: "Douze séances aujourd'hui, c'est le maximum. À demain !",
+  mockRunning: "Un examen blanc est en cours : terminez-le d'abord.", hold: "Le site a atteint sa limite du jour. Revenez demain.",
 };
 
 type Dict = typeof fr;
@@ -83,9 +85,10 @@ const en: Dict = {
   langWord: "Language", themeWord: "Theme", settings: "Settings", menu: "Menu",
   skip: "Skip to content", lightMode: "Light mode", darkMode: "Dark mode",
   signInTitle: "Sign in", email: "E-mail", password: "Password", show: "Show", hide: "Hide",
-  signIn: "Sign in", forgot: "Forgot your password?", createAccount: "Create your account", welcomeBack: "Welcome back", back: "Back",
+  signIn: "Sign in", forgot: "Forgot your password?", codeInstead: "Send me a code instead", createAccount: "Create your account", welcomeBack: "Welcome back", back: "Back",
   wrongLogin: "Wrong e-mail or password.", locked: (t) => `Too many tries. Try again at ${t}.`,
-  blocked: "This account is paused. tcf.monster is free and run by volunteers: this account sent far more requests than anyone practising does, which overloads the site and can make it unavailable for everyone. Write to @tcfmonsteradmin on Telegram to unblock it.",
+  blocked: "This account is paused. tcf.monster is free and run by volunteers: this account behaved like an automated program, which overloads the site and can make it unavailable for everyone. If this is a mistake, write to @tcfmonsteradmin on Telegram to unblock it.",
+  paused: "New accounts from this network are paused for a few days: automated programs came from it. Try from another network, or write to @tcfmonsteradmin on Telegram.",
   pitchTitle: "The whole TCF Canada, for free.",
   pitch1: "The four tests: Compréhension orale and écrite, Expression écrite and orale.",
   pitch2: "Real exam conditions, or help when you want it.",
@@ -109,6 +112,7 @@ const en: Dict = {
   pageError: (what: string) => `This page hit a problem (${what}). Reload the page and try again.`,
   welcome1: "My name is", welcome2: ", I'm aiming for", welcome3: "and my exam is on", welcome3and: "and", welcome3none: "I haven't registered yet",
   firstName: "first name", pickDate: "pick a date", notRegistered: "Not registered yet", prevMonth: "Previous month", nextMonth: "Next month",
+  termsAgain: "Our terms of use have changed",
   letsGo: "Let's go", stepOf: (n) => `${n} of 3`,
   sectionNames: { co: "Compréhension orale", ce: "Compréhension écrite", ee: "Expression écrite", eo: "Expression orale" }, setDate: "Pick a date",
   currentLevel: "Current level", nclcOr: (n) => (n === null ? "NCLC < 4" : `NCLC ${n}`),
@@ -141,7 +145,7 @@ const en: Dict = {
   keyRemoveTitle: "Remove the key?", keyRemoveBody: "Monster AI stops on this device until a key is pasted here again (the same one, or another from Google AI Studio).",
   roomNotFound: "This session does not exist.", leave: "Leave",
   mockRunning: "A mock exam is running: finish it first.",
-  hold: "The site has reached its daily limit. Come back tomorrow.", examCap: "Six exams today is the maximum. See you tomorrow!", dailyCap: "Twelve sessions today is the maximum. See you tomorrow!",
+  hold: "The site has reached its daily limit. Come back tomorrow.",
 };
 
 export type Lang = "fr" | "en";

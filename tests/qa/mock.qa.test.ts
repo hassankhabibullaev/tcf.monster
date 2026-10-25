@@ -88,6 +88,9 @@ describe("starting", () => {
       expect(m.paper[s]).toHaveLength(39);
       for (const lv of LEVELS) expect(m.paper[s].filter((q: Row) => q.level === lv)).toHaveLength(QUOTA[lv]);
       expect(new Set(m.paper[s].map((q: Row) => q.id)).size).toBe(39);
+      // the answers stay on the server: the browser's copy is ids and levels only
+      expect(m.paper[s].some((q: Row) => "answer" in q)).toBe(false);
+      expect(b.data.mock.paper[s].some((q: Row) => "answer" in q)).toBe(false);
     }
     // the topics: the newest month's combinaison and partie
     expect(JSON.parse(row(m.id).topics_json)).toEqual({ ee: 1, eo: { partId: 11, t2: 2, t3: 3 } });

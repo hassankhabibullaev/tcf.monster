@@ -92,15 +92,15 @@ export function setOwner(id: string | null) {
 export const ownerId = () => owner;
 
 /**
- * Leaving the device to someone else (sign-out, account deleted): what this browser kept of the person's work goes —
- * writing drafts, the marks waiting on a results page, an exam's answers, the recordings. Everything in it is on the
- * server already (drafts every ten seconds, answers within two) except what a lost network held back, which the
- * queue of practice answers keeps under the person's own key for their next sign-in here.
+ * Leaving the device to someone else (« Tout effacer de cet appareil », account deleted): what this browser kept of the
+ * person goes — writing drafts, the marks waiting on a results page, an exam's answers, the recordings and the numbers
+ * kept for the dashboard. The practice answers a lost network held back stay under the person's own key for their next
+ * sign-in here. The texts and recordings exist nowhere else, which is why « Garder mon travail ici » does not call this.
  */
 export function forgetDevice() {
   try {
     const keysOf = (st: Storage) => Array.from({ length: st.length }, (_, i) => st.key(i)).filter((k): k is string => !!k);
-    for (const k of keysOf(localStorage)) if (/^tcfm-(draft|progress|exam|active-session)/.test(k)) localStorage.removeItem(k);
+    for (const k of keysOf(localStorage)) if (/^tcfm-(draft|progress|exam|active-session|cache)/.test(k)) localStorage.removeItem(k);
     for (const k of keysOf(sessionStorage)) if (k.startsWith("expr-session-")) sessionStorage.removeItem(k);
   } catch { /* storage blocked */ }
   try { indexedDB.deleteDatabase("tcfm-clips"); } catch { /* none */ }

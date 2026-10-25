@@ -20,6 +20,10 @@ type Purpose = "signin" | "signup" | "reset";
 
 /** the bot check's public key, learned from the server's first « bot » answer (then sent with every guarded request) */
 let sitekey: string | null = null;
+/** the server said this network is strict (a bot was caught on it lately): the check shows its box at every step */
+let strict = false;
+/** the door's hidden field: no person sees or fills it (worker/auth.ts, « hp ») */
+let trap = "";
 
 export function SignIn() {
   const { t, lang } = useT();
@@ -47,7 +51,7 @@ export function SignIn() {
     const d = err instanceof ApiError ? err.data : {};
     const until = String(d.until ?? "");
     const known: Record<string, ErrorText> = {
-      closed: (w) => w.closed, too_many: (w) => w.tooMany, busy: (w) => w.tooMany, bot: (w) => w.networkError, mail: (w) => w.mailFailed, network: (w) => w.networkError,
+      closed: (w) => w.closed, paused: (w) => w.paused, too_many: (w) => w.tooMany, busy: (w) => w.tooMany, bot: (w) => w.networkError, mail: (w) => w.mailFailed, network: (w) => w.networkError,
       expired: (w) => w.codeExpired, wrong: (w) => w.codeWrong, email: (w) => w.badEmail, blocked: (w) => w.blocked,
       locked: (w, l) => w.locked(new Date(until).toLocaleTimeString(l === "fr" ? "fr-FR" : "en-GB", { hour: "2-digit", minute: "2-digit" })),
     };
@@ -62,12 +66,23 @@ export function SignIn() {
   /** a request the server guards with Cloudflare's bot check: a fresh token goes with it (each is good once); without a
    *  known key the server answers « bot » with its key, and the request goes once more with a token */
   async function guarded<T>(path: string, body: Record<string, unknown>, action: string): Promise<T> {
-    const once = async () => api<T>(path, { ...body, turnstile: sitekey ? await humanToken(sitekey, action, lang, document.getElementById("ts-slot")).catch(() => "") : undefined });
+    const once = async () => api<T>(path, { ...body, ...(trap ? { hp: trap } : {}), turnstile: sitekey ? await token(action) : undefined });
     try { return await once(); } catch (err) {
       const d = err instanceof ApiError ? err.data : {};
+      if (d.strict) strict = true;
       if (d.error !== "bot" || !d.turnstile || sitekey === d.turnstile) throw err;
       sitekey = String(d.turnstile);
       return once();
+    }
+  }
+  const token = (action: string) => humanToken(sitekey!, action, lang, document.getElementById("ts-slot"), strict ? "always" : "interaction-only").catch(() => "");
+  /** a step with no check of its own: on a strict network the server asks one (« bot »), and it goes once more with it */
+  async function checked<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    try { return await api<T>(path, body); } catch (err) {
+      const d = err instanceof ApiError ? err.data : {};
+      if (d.error !== "bot" || !d.turnstile) throw err;
+      sitekey = String(d.turnstile); strict = true;
+      return api<T>(path, { ...body, turnstile: await token("strict") });
     }
   }
   const remember = () => { try { sessionStorage.setItem("door-email", addr); } catch { /* fine */ } };
@@ -79,7 +94,8 @@ export function SignIn() {
     if (!addr) return;
     setBusy(true); setError(null);
     try {
-      const r = await guarded<{ exists: boolean }>("/auth/exists", { email: addr }, "door");
+      const r = await guarded<{ exists: boolean; strict?: boolean }>("/auth/exists", { email: addr }, "door");
+      if (r.strict) strict = true;
       remember();
       setPassword("");
       if (r.exists) { setPurpose("signin"); goTo("password"); }
@@ -124,14 +140,14 @@ export function SignIn() {
     setBusy(true); setError(null);
     try {
       if (purpose === "signin") {
-        await api("/auth/signin-code", { email: addr, code: c });
+        await checked("/auth/signin-code", { email: addr, code: c });
         await refresh();
         return;
       }
-      const r = await api<{ proof: string; exists: boolean }>("/auth/verify", { email: addr, code: c });
+      const r = await checked<{ proof: string; exists: boolean }>("/auth/verify", { email: addr, code: c });
       if (purpose === "signup") {
         // the password was chosen before the code: the account is created now and the door opens
-        await api("/auth/password", { email: addr, proof: r.proof, password: await stretch(addr, password), terms: r.exists ? undefined : true, lang });
+        await checked("/auth/password", { email: addr, proof: r.proof, password: await stretch(addr, password), terms: r.exists ? undefined : true, lang });
         try { sessionStorage.removeItem("door-email"); } catch { /* fine */ }
         await refresh();
         return;
@@ -152,7 +168,7 @@ export function SignIn() {
     if (strength(password) < 1) return;
     setBusy(true); setError(null);
     try {
-      await api("/auth/password", { email: addr, proof, password: await stretch(addr, password), lang });
+      await checked("/auth/password", { email: addr, proof, password: await stretch(addr, password), lang });
       try { sessionStorage.removeItem("door-email"); } catch { /* fine */ }
       await refresh();
     } catch (err) {
@@ -182,6 +198,7 @@ export function SignIn() {
           <Field id="email" label={t.yourEmail} error={errorLine}>
             <input id="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} autoFocus aria-invalid={!!error || undefined} aria-describedby="email-error" />
           </Field>
+          <input className="hp" name="tcfm_nm" type="text" tabIndex={-1} aria-hidden="true" autoComplete="off" defaultValue="" onChange={(e) => { trap = e.target.value; }} />
           <Button type="submit" kind="primary" className="full" busy={busy} disabled={!addr}>{t.continue}</Button>
         </form>
       )}
@@ -196,6 +213,7 @@ export function SignIn() {
           <Button type="submit" kind="primary" className="full" busy={busy} disabled={!password}>{t.signIn}</Button>
           <div className="auth-links center">
             <button type="button" className="linklike" disabled={busy} onClick={() => void sendCode("reset")}>{t.forgot}</button>
+            <button type="button" className="linklike" disabled={busy} onClick={() => void sendCode("signin")}>{t.codeInstead}</button>
           </div>
         </form>
       )}

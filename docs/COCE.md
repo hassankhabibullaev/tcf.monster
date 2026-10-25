@@ -23,11 +23,17 @@ the CSP forbids them; React style props are fine).
 Built by `python3 scripts/bank-export.py` from `~/Developer/tcf.monster-data/final/{questions,placements}.json`
 into `public/data/` (git-ignored). Never committed. The bank's guard (`worker/coce/guard.ts`):
 - `/data/*` goes through the Worker, to signed-in people only, kept an hour by the browser. Each file a person opens
-  is noted once a day (`bank_reads`). Past 30 files a minute (`BANK_PACE`) the answer is `429 { error: "human",
-  turnstile }`: `web/app/coce/bank.ts` shows Turnstile (action "bank"), sends the token as `x-turnstile`, and a pass
-  holds 45 minutes (`users.human_until`). Blocked — signed out everywhere, sign-in answers « blocked » — past 120 files
-  a minute (`BANK_LIMIT`), 5 failed checks in a row, 40 different files in a day or 80 in seven days, until the owner
-  unblocks on the admin's person page. The owner is never paced or blocked.
+  is noted once a day (`bank_reads`). Every request passes the abuse guard (`worker/guard.ts`): a pace or a daily
+  volume no person reaches, or technical signs of a program, ask Cloudflare's human check (`429 { error: "human",
+  turnstile }`, shown by `web/app/guard-fetch.ts`, token sent again as `x-turnstile`, a pass holds 45 minutes); failing
+  it only asks again. The account is blocked — signed out everywhere, sign-in answers « blocked » — on a hidden trap or
+  a canary, on requests at a machine's pace while the check waits, past a hard line, or when signs add up, until the
+  owner unblocks on the admin's person page. The owner is never checked or blocked.
+- Canaries (`scripts/copy-media.mjs`, made with the media secret, listed in R2 `private/canary.json` by
+  `scripts/upload-keys.mjs`): on two real questions a file, a recording or picture name that exists nowhere
+  (`audioSlow` / `passageImageHd`, read by no page); from 2026-11-21, whole questions too — in a level file under another
+  level, in an exam file at position 40. `web/app/coce/bank.ts` keeps a level's own questions and an exam's positions
+  1…39; scoring keeps positions 01…39. Asking for a canary name, answering or reporting a canary question blocks.
 - `/media/*` are plain files Cloudflare serves without the Worker (free): `scripts/copy-media.mjs` copies them into
   `dist/media/` under names made with a secret kept on this Mac (`~/Developer/tcf.monster-data/media-secret.txt`; the
   same secret, the same names at every build) and rewrites the names inside `dist/data/`. The export's names below
@@ -295,7 +301,7 @@ All inside `web/app/coce/room/`, exported from `web/app/coce/room/index.ts`:
   Terminer → the one
   sheet above (the unanswered list, `done` or `abandon`); leave (Escape, the browser's back) → Sheet « Quitter l'examen ?
   Le temps continue » (the attempt keeps running); time up → freeze one second at 00:00 → `onFinished`. Answers go to the store at once and
-  to `PATCH` debounced 2 s (and on hide/leave with keepalive). Offline: a band inside the room; answers kept and sent later.
+  to `PATCH` 20 s after the last change (and on hide/leave with keepalive). Offline: a band inside the room; answers kept and sent later.
 - There is no review room any more: the result page (§5) holds the review. `/…/result/:id/review` redirects there.
 - **The hallway**: Commencer on the exam's page leads to the salle; with no attempt running, the same dark hallway as
   EE/EO (`web/app/sim/hallway.tsx`: the logo, the section's title « Examen CO n° 3 », 3 · 2 · 1 — one real second

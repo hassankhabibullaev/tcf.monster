@@ -6,7 +6,7 @@
  *   task descriptions, criteria names, /20 → NCLC table. The numbers are copied here by hand (no JSON import:
  *   the tsconfig has no resolveJsonModule and the file is small); change both when one changes.
  * - Per-task writing times: 10 / 15 / 25 min, set by the owner on 2026-10-05 (the official test gives 60 min for
- *   the three tasks together and no time per task; the full simulation here lasts the sum, 50 min).
+ *   the three tasks together and no time per task; the full simulation, like the mock, keeps the official 60 min).
  * - FALLBACK (not in any official source): task weights 6 / 6 / 8 = 20 points. The marking grid itself
  *   (docs/rubric.md) is a non-official pedagogical grid.
  */
@@ -100,8 +100,8 @@ export type WritingTaskConfig = {
 };
 
 export const WRITING: { totalMinutes: number; tasks: Record<TaskNo, WritingTaskConfig>; criteria: string[] } = {
-  // the sum of the three task times below (the official test allows 60)
-  totalMinutes: 50,
+  // the three tasks together, as on the day (the official test allows 60; one task alone keeps its own time below)
+  totalMinutes: 60,
   criteria: EE.criteres,
   tasks: {
     1: { task: 1, label: "Tâche 1", short: "Message à un proche : décrire, raconter, expliquer", description: EE.taches[0].description, wordsMin: EE.taches[0].words_min, wordsMax: EE.taches[0].words_max, minutes: 10, maxPoints: 6, register: "informel à neutre, adapté au destinataire" },
@@ -151,8 +151,9 @@ export function normalizeTasks(input: unknown): TaskNo[] {
   return out.length ? out : [...ALL_TASKS];
 }
 
-/** Writing: one overall clock = sum of the times of the selected tasks (50 min when all three). */
+/** Writing: one overall clock = the official 60 min when all three tasks are written, else the sum of their own times. */
 export function writingTotalSeconds(tasks: TaskNo[]): number {
+  if (new Set(tasks).size === 3) return WRITING.totalMinutes * 60;
   return tasks.reduce((s, t) => s + WRITING.tasks[t].minutes * 60, 0);
 }
 

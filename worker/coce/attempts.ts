@@ -1,12 +1,12 @@
 // CO/CE exam attempts (docs/COCE.md §3). The attempt lives here: the deadline is the server's clock, the answers
 // come in small PATCHes while the exam runs, and the score is computed on the server from the exam's own file
 // (public/data/exam-<section>-<NN>.json, read through ASSETS: static, no database). A person sees only their own rows.
-import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, BUDGET_HOLD, claimStart, releaseStart, readJson } from "../util.ts";
+import { type Env, json, fail, nowIso, day, daysAgoIso, addWrites, holdReached, claimStart, releaseStart, readJson } from "../util.ts";
 import type { Me } from "../auth.ts";
 import { type Level, type Section, LEVELS, POINTS } from "../../shared/progress.ts";
 import reference from "../sim/exam-reference.json" with { type: "json" };
 import { runningMock, toMockRow } from "../mock/row.ts";
-import { guardAmount } from "../guard.ts";
+import { guardAmount, canaryPlacement, trapped } from "../guard.ts";
 
 /** minutes allowed */
 export const DURATION_MIN: Record<Section, number> = { co: 35, ce: 60 };
@@ -114,7 +114,8 @@ async function readExam(env: Env, section: Section, exam: number): Promise<ExamQ
     if (!r.ok) return null;
     const rows = (await r.json()) as Partial<ExamQuestion>[];
     if (!Array.isArray(rows) || !rows.length) return null;
-    return rows.filter((q): q is ExamQuestion => typeof q.placement === "string" && typeof q.level === "string" && isKey(q.answer));
+    // the file's hidden question (position 40, worker/guard.ts) is never scored
+    return rows.filter((q): q is ExamQuestion => typeof q.placement === "string" && PLACEMENT.test(q.placement) && typeof q.level === "string" && isKey(q.answer));
   } catch {
     return null;
   }
@@ -122,6 +123,13 @@ async function readExam(env: Env, section: Section, exam: number): Promise<ExamQ
 
 /** "CO-12-" — the placements that belong to this attempt's exam; answers for any other are not kept */
 const prefixOf = (section: Section, exam: number) => `${section.toUpperCase()}-${String(exam).padStart(2, "0")}-`;
+
+/** an answer for the exam file's hidden question (worker/guard.ts canaryPlacement): no page shows it, a program sent it */
+function canaryOf(row: Row, b: Record<string, unknown>): string | null {
+  const given = b.answers && typeof b.answers === "object" && !Array.isArray(b.answers) ? Object.keys(b.answers) : [];
+  const prefix = prefixOf(row.section, row.exam);
+  return given.find((k) => k.startsWith(prefix) && canaryPlacement(k)) ?? null;
+}
 
 /** the answers a request brings, laid over the row's (only this exam's placements, at most 100); inside the grace only
  *  answers stamped before the deadline count. Returns "late" when they come too late, else whether anything changed. */
@@ -229,10 +237,9 @@ export async function handleAttempts(req: Request, env: Env, me: Me, path: strin
     // never while a mock exam runs (docs/MOCK-EXAM.md §7)
     const mock = await runningMock(env, me.id);
     if (mock) return json({ error: "mock_running", mock: toMockRow(mock) }, 409);
-    const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(day(env.APP_TZ)).first<{ writes: number }>();
-    if ((spent?.writes ?? 0) >= BUDGET_HOLD) return json({ error: "hold" }, 503);
+    if (await holdReached(env)) return json({ error: "hold" }, 503);
     const { row: slot, today } = await claimStart(env, me.id, "attempt");
-    const stopped = await guardAmount(env, me, "starts", today);
+    const stopped = await guardAmount(env, me, "starts", today, req);
     if (stopped) { await releaseStart(env, slot); return stopped; }
     const startedAt = new Date();
     const deadlineAt = new Date(startedAt.getTime() + DURATION_MIN[section] * 60_000);
@@ -268,6 +275,8 @@ export async function handleAttempts(req: Request, env: Env, me: Me, path: strin
     if (!post) return fail(405, "POST");
     if (row.finished_at) return json({ error: "finished", attempt: toAttempt(row) }, 409);
     const b = await readBody(req);
+    const canary = canaryOf(row, b);
+    if (canary) return trapped(env, req, `canary question answered (${canary})`, me);
     const asked = b.ended === "abandon" ? "abandon" : b.ended === "done" ? "done" : null;
     if (!asked) return fail(400, "ended");
     // the last answers may ride with the finish (stored by the finishing UPDATE itself, no extra write)
@@ -301,6 +310,8 @@ export async function handleAttempts(req: Request, env: Env, me: Me, path: strin
     }
     const b = await readBody(req);
     if (!b.answers || typeof b.answers !== "object" || Array.isArray(b.answers)) return fail(400, "answers");
+    const canary = canaryOf(row, b);
+    if (canary) return trapped(env, req, `canary question answered (${canary})`, me);
     // inside the grace only answers stamped before the deadline are taken (a stamp is optional)
     const changed = mergeAnswers(row, b);
     if (changed === "late") return json({ error: "late", attempt: toAttempt(row) }, 409);

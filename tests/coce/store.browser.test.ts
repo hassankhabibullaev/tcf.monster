@@ -112,8 +112,8 @@ describe("one browser, two people", () => {
     expect(JSON.parse(mem.get("tcfm-queue:A")!).length).toBe(1);
   });
 
-  it("forgetDevice removes drafts, marks and exam copies, never the queues", () => {
-    mem.set("tcfm-draft-s1-1", "Bonjour"); mem.set("tcfm-progress-s1", "{}"); mem.set("tcfm-exam-9", "{}"); mem.set("tcfm-queue:A", "[]"); mem.set("tcfm-theme", "light");
+  it("forgetDevice removes drafts, marks, exam copies and the kept numbers, never the queues", () => {
+    mem.set("tcfm-cache", "{}"); mem.set("tcfm-draft-s1-1", "Bonjour"); mem.set("tcfm-progress-s1", "{}"); mem.set("tcfm-exam-9", "{}"); mem.set("tcfm-queue:A", "[]"); mem.set("tcfm-theme", "light");
     vi.stubGlobal("indexedDB", { deleteDatabase: () => {} });
     store.forgetDevice();
     expect([...mem.keys()].sort()).toEqual(["tcfm-queue:A", "tcfm-theme"]);

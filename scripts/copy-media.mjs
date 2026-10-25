@@ -59,4 +59,52 @@ for (const f of existsSync(DIST_DATA) ? readdirSync(DIST_DATA) : []) {
   writeFileSync(p, text);
   files++;
 }
-console.log(`copy-media: ${n} files in dist/media${missing ? `, ${missing} skipped` : ""}; ${renamed} names in ${files} bank files${unknown ? `, ${unknown} with no file` : ""}; answer keys removed`);
+// Canaries (worker/guard.ts): things in the bank files that no page ever shows, so only a program reading the files
+// asks for them. Made with the same secret, so the same at every build and impossible to tell from the real ones:
+// - on CANARY_MEDIA real questions a file, a recording or picture name that exists nowhere (a field no page reads);
+// - from CANARY_QUESTIONS_FROM, whole questions too: in a level file under another level's name, in an exam file at
+//   position 40. The pages drop them (web/app/coce/bank.ts). The date leaves time for every tab still running an app
+//   from before that filter to be gone: such a tab would show them.
+// Their list goes to ~/Developer/tcf.monster-data/canary.json; scripts/upload-keys.mjs puts it in R2 private/, where
+// only the Worker reads it.
+const CANARY_MEDIA = 2;
+const CANARY_QUESTIONS_FROM = process.env.TCFM_CANARY_QUESTIONS_FROM ?? "2026-11-21";
+const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+const mac = (s) => createHmac("sha256", secret).update(`canary:${s}`).digest("hex");
+const uuidOf = (h) => `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${"89ab"[parseInt(h[16], 16) & 3]}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+const fakeMedia = (section, seed, ext) => `/media/${section}/${mac(seed).slice(0, 32)}${ext}`;
+const canary = { ids: [], media: [] };
+const withQuestions = new Date().toISOString().slice(0, 10) >= CANARY_QUESTIONS_FROM;
+for (const f of existsSync(DIST_DATA) ? readdirSync(DIST_DATA) : []) {
+  const m = /^(?:(co|ce)-([A-C][12])|exam-(co|ce)-(\d{2}))\.json$/.exec(f);
+  if (!m) continue;
+  const p = join(DIST_DATA, f);
+  const qs = JSON.parse(readFileSync(p, "utf8"));
+  if (!Array.isArray(qs) || !qs.length) continue;
+  const section = m[1] ?? m[3];
+  for (let i = 0; i < CANARY_MEDIA; i++) {
+    const q = qs[parseInt(mac(`${f}:media:${i}`).slice(0, 8), 16) % qs.length];
+    const name = section === "co" ? fakeMedia("co", `${f}:media:${i}`, ".mp3") : fakeMedia("ce", `${f}:media:${i}`, ".webp");
+    q[section === "co" ? "audioSlow" : "passageImageHd"] = name;
+    canary.media.push(name);
+  }
+  if (withQuestions) {
+    for (let i = 0; i < (m[1] ? 2 : 1); i++) {
+      const h = mac(`${f}:question:${i}`);
+      const c = structuredClone(qs[parseInt(h.slice(0, 8), 16) % qs.length]);
+      c.id = uuidOf(h);
+      if (m[1]) c.level = LEVELS[(LEVELS.indexOf(m[2]) + 1 + i) % LEVELS.length];
+      else { c.position = 40 + i; c.placement = `${m[3].toUpperCase()}-${m[4]}-${40 + i}`; c.level = "C2"; }
+      if (section === "co") c.audio = fakeMedia("co", `${f}:question:${i}`, ".mp3");
+      else c.passageImage = fakeMedia("ce", `${f}:question:${i}`, ".webp");
+      delete c.audioSlow; delete c.passageImageHd;
+      canary.ids.push(c.id);
+      canary.media.push(c.audio ?? c.passageImage);
+      qs.splice(parseInt(h.slice(8, 16), 16) % (qs.length + 1), 0, c);
+    }
+  }
+  writeFileSync(p, JSON.stringify(qs));
+}
+writeFileSync(join(DATA_HOME, "canary.json"), JSON.stringify(canary), { mode: 0o600 });
+
+console.log(`copy-media: ${n} files in dist/media${missing ? `, ${missing} skipped` : ""}; ${renamed} names in ${files} bank files${unknown ? `, ${unknown} with no file` : ""}; answer keys removed; ${canary.media.length} canary names${withQuestions ? `, ${canary.ids.length} canary questions` : ""}`);

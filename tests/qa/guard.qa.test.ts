@@ -4,7 +4,7 @@
 // for the admin.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setup, teardown, PW, ADMIN, type QA, type Row } from "./helpers.ts";
-import { GUARD, HUMAN_FAILS } from "../../worker/guard.ts";
+import { GUARD } from "../../worker/guard.ts";
 import { day } from "../../worker/util.ts";
 
 let qa: QA;
@@ -156,12 +156,15 @@ describe("pace: faster than a person", () => {
     expect(student().blocked_at).toBeNull();
   });
 
-  it(`${HUMAN_FAILS} failed checks: blocked`, async () => {
+  it("failed checks never block: the check is asked again, however many times (a network, an extension)", async () => {
     turnstile();
     (qa.env as Row).USER_PACE = limiter(0);
     await qa.call("/api/me", { cookie });
-    for (let i = 0; i < HUMAN_FAILS; i++) await qa.call("/api/me", { cookie, headers: { "x-turnstile": "bad" } });
-    expect(student().blocked_reason).toBe(`${HUMAN_FAILS} failed human checks`);
+    for (let i = 0; i < 12; i++) expect((await qa.call("/api/me", { cookie, headers: { "x-turnstile": "bad" } })).status).toBe(429);
+    expect(student().blocked_at).toBeNull();
+    expect(student().human_fails).toBe(12);
+    expect((await qa.call("/api/me", { cookie, headers: { "x-turnstile": "good" } })).status).toBe(200);
+    expect(student().human_fails).toBe(0);
   });
 
   it("still far faster after passing the check: blocked", async () => {

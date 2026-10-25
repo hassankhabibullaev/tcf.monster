@@ -28,6 +28,8 @@ export type Answer = Key | "-";
 /** one line of public/data/key-<section>.json, and of the paper */
 export type KeyRow = { id: string; level: Level; answer: Key };
 export type Paper = Record<CoceSection, KeyRow[]>;
+/** the paper as the browser gets it: ids and levels, never the answers (they stay on the server, for the scoring) */
+export type PaperView = Record<CoceSection, Omit<KeyRow, "answer">[]>;
 export type Topics = { ee: number | null; eo: { partId: number | null; t2: number | null; t3: number | null } };
 export type Ended = "done" | "time" | "abandon" | "stale";
 export type EndedJson = Partial<Record<TestStage, Ended>> & { eoLateS?: number };
@@ -53,4 +55,4 @@ export type MockRow = {
   micMode: "live" | "ptt" | null; ended: EndedJson; result: Result | null; certificate: boolean;
   eeSessionId: string | null; eoSessionId: string | null;
 };
-export type Mock = MockRow & { paper: Paper; answers: Record<CoceSection, Record<string, Answer>>; coResult: CoceResult | null; ceResult: CoceResult | null };
+export type Mock = MockRow & { paper: PaperView; answers: Record<CoceSection, Record<string, Answer>>; coResult: CoceResult | null; ceResult: CoceResult | null };

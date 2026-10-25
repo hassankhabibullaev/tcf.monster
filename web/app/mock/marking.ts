@@ -3,7 +3,8 @@
 // in again — the writing texts from this browser's copies, the speaking answers from the clips
 // this browser kept — with automatic retries (4 · 8 · 12 s, then one a minute). One run per session at a time.
 import { markWriting, within } from "../sim/browser-score";
-import { loadSession } from "../sim/work.ts";
+import { loadSession, workOfSession } from "../sim/work.ts";
+import { clipsOf } from "../sim/clips.ts";
 import { rebuildStarted, type StoredSession } from "../expr.ts";
 import { finishTask } from "../sim/analysis.ts";
 import { LISTENING_TIMEOUT_MS, SCORING_TIMEOUT_MS, explainFailure, failureOf, type Failure } from "../sim/scoring-error.ts";
@@ -24,6 +25,20 @@ const draftOf = (sessionId: string, taskNo: number, mine: Record<string, string>
   const m = mine[String(taskNo)] ?? "";
   return m.length > kept.length ? m : kept;
 };
+
+/** the texts or recordings sit on another device: this one has no trace of the session (no kept work, no draft, no
+ *  clip). Marking here would score the tasks 0/20 for good, so it waits for the device that has them. */
+const AWAY: Record<Lang, string> = {
+  fr: "Vos textes et vos enregistrements sont sur l'appareil où vous avez passé l'examen blanc : ouvrez-le là-bas pour terminer la correction.",
+  en: "Your texts and recordings are on the device you sat the mock exam on: open it there to finish the marking.",
+};
+async function hasTrace(sessionId: string, skill: "writing" | "speaking", drafts: Record<string, string>): Promise<boolean> {
+  if ((await workOfSession(sessionId).catch(() => [])).length) return true;
+  if (skill === "speaking") return (await clipsOf(sessionId).catch(() => [])).length > 0;
+  if (Object.values(drafts).some((t) => t.trim())) return true;
+  try { for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)?.startsWith(`tcfm-draft-${sessionId}-`)) return true; } catch { /* storage blocked */ }
+  return false;
+}
 
 async function load(sessionId: string): Promise<{ d: StoredSession; state: MarkState }> {
   const d = await loadSession(sessionId);
@@ -69,6 +84,13 @@ async function mark(sessionId: string, drafts: Record<string, string>, lang: Lan
     r.state = { ...state, score20: d.session.status === "done" ? null : null };
     tell(sessionId);
     if (state.done) { r.running = false; return; }
+    // nothing of this session on this device: the tasks wait for the device that has the work (no 0/20 stored here)
+    if (d.tasks.some((t) => !(t.status === "done" && t.score20 != null)) && !(await hasTrace(sessionId, state.skill, drafts))) {
+      failure = { message: AWAY[lang], retryInS: 0, google: false, away: true };
+      for (const t of d.tasks) if (!(t.status === "done" && t.score20 != null)) setTask(sessionId, t.taskNo, { status: "failed", failure });
+      r.running = false;
+      return;
+    }
     for (const task of d.tasks) {
       if (task.status === "done" && task.score20 != null) continue;
       // being marked by a request still on its way (the stage's own hand-in): patience, then once more
@@ -105,9 +127,10 @@ async function mark(sessionId: string, drafts: Record<string, string>, lang: Lan
     tell(sessionId);
   }
   r.running = false;
-  // one of the tasks failed: by itself three times (4 · 8 · 12 s), then one a minute; never when the key is refused
+  // one of the tasks failed: by itself three times (4 · 8 · 12 s), then one a minute; never when the key is refused or
+  // the work is on another device
   const stuck = r.state.tasks.some((t) => t.status === "failed" || t.status === "running");
-  if (stuck && !r.state.done && !failure?.key) {
+  if (stuck && !r.state.done && !failure?.key && !failure?.away) {
     const wait = r.tries < RETRY_S.length ? RETRY_S[r.tries] : Math.min(60, failure?.retryInS ?? 60);
     r.tries++;
     const at = Date.now() + wait * 1000;

@@ -114,3 +114,6 @@
   /* the mock exam: its own row card under the list */
   .mk-card { margin-top: 0; }
 }
+
+/* the numbers did not arrive: one line and Réessayer in the activity card */
+.ha-failed { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-height: 100px; color: var(--ink-muted); }

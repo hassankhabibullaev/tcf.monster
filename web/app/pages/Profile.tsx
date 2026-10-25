@@ -84,8 +84,8 @@ export function Profile() {
     setBusy(true);
     await flush().catch(() => {});
     await api("/auth/logout", {}).catch(() => {});
-    forgetDevice();
-    if (erase) { forgetKeyHere(); await dropAllWork().catch(() => {}); await forgetMocksHere().catch(() => {}); forgetAskedHere(); }
+    // keep: nothing of the work is touched (the texts and recordings exist only here); erase: all of it goes
+    if (erase) { forgetDevice(); forgetKeyHere(); await dropAllWork().catch(() => {}); await forgetMocksHere().catch(() => {}); forgetAskedHere(); }
     signedOut(); replace("/sign-in");
   }
   async function askDeleteCode() {
@@ -97,7 +97,7 @@ export function Profile() {
   async function deleteNow() {
     setBusy(true); setError(null);
     // the account gone: what this device kept for the person goes too (the key, the texts and transcripts)
-    try { await api("/me/delete", { code }); forgetDevice(); forgetKeyHere(); await dropAllWork(); signedOut(); replace("/sign-in"); say(t.accountDeleted); }
+    try { await api("/me/delete", { code }); forgetDevice(); forgetKeyHere(); await dropAllWork().catch(() => {}); await forgetMocksHere().catch(() => {}); forgetAskedHere(); signedOut(); replace("/sign-in"); say(t.accountDeleted); }
     catch (e) { const d = e instanceof ApiError ? e.data : {}; setError(d.error === "wrong" ? t.codeWrong : d.error === "expired" ? t.codeExpired : t.networkError); if (d.error === "wrong") { setShake((n) => n + 1); setCode(""); } setBusy(false); }
   }
   /** a new password while signed in: the same code flow as the door; every other device is signed out by the server */
@@ -126,22 +126,23 @@ export function Profile() {
   /* ---------- the four groups, the same in both structures ---------- */
   const profile = (
     <>
-      <Row label={w.name} value={me.name} editing={edit === "name"} action={<Button size="sm" kind="quiet" onClick={() => setEdit("name")}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>}
+      <Row label={w.name} value={me.name} editing={edit === "name"} action={<Button size="sm" kind="quiet" onClick={() => setEdit("name")} aria-label={`${w.change} · ${w.name}`}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>}
         editor={<>
           <input value={name} maxLength={40} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) void save({ name: name.trim() }); if (e.key === "Escape") setEdit(null); }} aria-label={w.name} />
           <Button size="sm" kind="primary" disabled={!name.trim()} onClick={() => void save({ name: name.trim() })}>{w.save}</Button>
           <Button size="sm" kind="quiet" onClick={() => { setName(me.name ?? ""); setEdit(null); }}>{w.cancel}</Button>
         </>} />
-      <Row label={w.target} help={w.targetHelp} value={me.target_nclc ? `NCLC ${me.target_nclc}` : "—"} editing={edit === "target"} action={<Button size="sm" kind="quiet" onClick={() => setEdit("target")}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>}
+      <Row label={w.target} help={w.targetHelp} value={me.target_nclc ? `NCLC ${me.target_nclc}` : "—"} editing={edit === "target"} action={<Button size="sm" kind="quiet" onClick={() => setEdit("target")} aria-label={`${w.change} · ${w.target}`}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>}
         editor={<>
-          <select defaultValue={me.target_nclc ?? 7} autoFocus onChange={(e) => void save({ target_nclc: Number(e.target.value) })} aria-label={w.target}>
+          <select defaultValue={me.target_nclc ?? ""} autoFocus onChange={(e) => void save({ target_nclc: Number(e.target.value) })} aria-label={w.target}>
+            {!me.target_nclc && <option value="" disabled>NCLC ▾</option>}
             {TARGETS.map((n) => <option key={n} value={n}>NCLC {n}</option>)}
           </select>
           <Button size="sm" kind="quiet" onClick={() => setEdit(null)}>{w.cancel}</Button>
         </>} />
       <Row label={w.date} value={me.exam_date ? longDate(me.exam_date, lang) : <span className="muted">{w.notRegistered}</span>}
         action={<span className="cal-anchor">
-          <Button size="sm" kind="quiet" aria-expanded={edit === "date"} aria-haspopup="dialog" onClick={() => setEdit(edit === "date" ? null : "date")}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>
+          <Button size="sm" kind="quiet" aria-expanded={edit === "date"} aria-haspopup="dialog" onClick={() => setEdit(edit === "date" ? null : "date")} aria-label={`${w.change} · ${w.date}`}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>
           <CalendarPop open={edit === "date"} onClose={closeCal} align="end">
             <Calendar value={me.exam_date} none={!me.exam_date} onPick={(d) => void save({ exam_date: d })} onNone={() => void save({ exam_date: null })} />
           </CalendarPop>
@@ -151,7 +152,7 @@ export function Profile() {
   const account = (
     <>
       <Row label={w.email} value={me.email} />
-      <Row label={w.password} help={w.passwordHelp} value={w.passwordSet} action={<Button size="sm" kind="quiet" busy={busy && sheet === null && edit === null} onClick={askPasswordCode}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>} />
+      <Row label={w.password} help={w.passwordHelp} value={w.passwordSet} action={<Button size="sm" kind="quiet" busy={busy && sheet === null && edit === null} onClick={askPasswordCode} aria-label={`${w.change} · ${w.password}`}><span className="desk-only">{w.change}</span><Icon name="chevronRight" size={18} className="mob-only" /></Button>} />
       <div className="sacct-actions">
         <Button busy={busy && sheet === null && edit === null} onClick={() => setSheet("signOut")}><Icon name="external" size={16} className="mob-only" />{w.signOut}</Button>
         <Button kind="danger" onClick={() => { setError(null); setSheet("delete"); }}><Icon name="x" size={16} className="mob-only" /><span className="desk-only">{w.delete}</span><span className="mob-only">{w.deleteShort}</span></Button>
@@ -173,8 +174,8 @@ export function Profile() {
         <Button kind="danger" onClick={() => { forgetKeyHere(); setSheet(null); }}>{t.keyRemove}</Button>
       </>}><p>{t.keyRemoveBody}</p></Sheet>
       <Sheet open={sheet === "signOut"} title={w.signOut} onClose={() => setSheet(null)} actions={<>
-        <Button kind="danger" busy={busy} onClick={() => void signOut(true)}>{w.signOutErase}</Button>
         <Button kind="primary" busy={busy} onClick={() => void signOut(false)}>{w.signOutKeep}</Button>
+        <Button kind="danger" busy={busy} onClick={() => void signOut(true)}>{w.signOutErase}</Button>
       </>} />
       <Sheet open={sheet === "delete"} title={t.deleteTitle} onClose={() => setSheet(null)} actions={<>
         <Button onClick={() => setSheet(null)}>{t.cancel}</Button>

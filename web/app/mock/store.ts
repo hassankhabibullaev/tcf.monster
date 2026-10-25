@@ -23,6 +23,8 @@ export type LocalState = {
 };
 
 const RETRY_MS = 10_000;
+/** answers wait this long after the last change before they are sent */
+const SEND_AFTER_MS = 20_000;
 const DB = "tcfm-mock";
 const STORE = "state";
 const lsKey = (id: number) => `tcfm-mock-${id}`;
@@ -117,7 +119,11 @@ export class MockStore {
     this.state.stamps[stage][qid] = serverNow();
     this.dirty[stage].add(qid);
     this.persist();
+    // sent SEND_AFTER_MS after the last change (and when the tab hides, the network returns or the stage ends)
+    this.schedule(SEND_AFTER_MS);
   }
+  /** answers the server does not have yet */
+  get unsent() { return this.dirty.co.size + this.dirty.ce.size; }
   setCursor(stage: CoceStage, index: number) { if (this.state.cursor[stage] === index) return; this.state.cursor[stage] = index; this.persist(); }
   setHeard(stage: CoceStage, qid: string | null) { if (this.state.heard[stage] === qid) return; this.state.heard[stage] = qid; this.persist(); }
   setDraft(taskNo: number, text: string) { if (this.state.drafts[String(taskNo)] === text) return; this.state.drafts[String(taskNo)] = text; this.persist(); }

@@ -96,7 +96,20 @@ export async function claimStart(env: Env, userId: string, kind: "session" | "at
 }
 /** a start that did not happen after all (refused further on, or a double tap): its place is given back */
 export const releaseStart = (env: Env, row: number) => env.DB.prepare("DELETE FROM starts WHERE rowid = ?").bind(row).run();
-export const resetWrites = () => { pendingWrites = 0; pendingDay = ""; lastFlush = 0; };
+export const resetWrites = () => { pendingWrites = 0; pendingDay = ""; lastFlush = 0; held = null; };
+
+/** whether today's writes reached the hold line: read once a minute per server (it is an estimate already, and every
+ *  start, sync and new bank file asked it, some twice); exact where writes are counted exactly (tests, this Mac) */
+let held: { day: string; at: number; hold: boolean } | null = null;
+export async function holdReached(env: Env): Promise<boolean> {
+  const today = day(env.APP_TZ);
+  const exact = Number(env.WRITES_FLUSH_EVERY || 25) <= 1;
+  if (!exact && held && held.day === today && Date.now() - held.at < 60_000) return held.hold;
+  const spent = await env.DB.prepare("SELECT writes FROM budget WHERE day = ?").bind(today).first<{ writes: number }>();
+  const hold = (spent?.writes ?? 0) >= BUDGET_HOLD;
+  held = { day: today, at: Date.now(), hold };
+  return hold;
+}
 
 /** longest JSON body any route reads (the biggest legitimate one, a writing text of 8 000 characters, is far below) */
 export const MAX_JSON = 1024 * 1024;

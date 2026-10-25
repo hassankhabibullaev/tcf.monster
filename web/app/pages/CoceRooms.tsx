@@ -12,7 +12,7 @@ import { api, ApiError } from "../api.ts";
 import { loadExam, type Question, type Section } from "../coce/bank.ts";
 import type { Level } from "../../../shared/progress.ts";
 import { PracticeRoom, ExamRoom, useRoomWords, DURATION_MIN, type Attempt, type Help } from "../coce/room/index.ts";
-import { noteRunning, currentRunning } from "../coce/pages/index.ts";
+import { noteRunning, currentRunning, takeStart } from "../coce/pages/index.ts";
 import { Hallway } from "../sim/index.ts";
 import "../sim/sim.css";
 
@@ -55,7 +55,7 @@ export function ExamSalle({ section, exam }: { section: Section; exam: number })
   const mode = new URLSearchParams(location.search).get("mode") === "training" ? "training" : "exam";
   const errorOf = (e: unknown) => {
     const d = e instanceof ApiError ? e.data : {};
-    return d.error === "hold" ? t.hold : d.error === "daily_cap" ? t.examCap : d.error === "mock_running" ? t.mockRunning : d.error === "network" ? t.networkError : t.serverError;
+    return d.error === "hold" ? t.hold : d.error === "mock_running" ? t.mockRunning : d.error === "network" ? t.networkError : t.serverError;
   };
 
   // on arrival: an attempt already running for this exam → straight in; for another exam → its own room; none → the hallway
@@ -68,7 +68,8 @@ export function ExamSalle({ section, exam }: { section: Section; exam: number })
         // the answer every band shares (asked at most once a minute), not a request of its own
         const running = (await currentRunning()).attempt as unknown as Attempt | null;
         if (gone) return;
-        if (!running) { setSt({ step: "hall" }); return; }
+        // nothing runs: the hallway only after « Commencer » (Back onto a finished exam's room goes to its card)
+        if (!running) { if (takeStart(section, exam)) setSt({ step: "hall" }); else replace(`/${section}/exam/${exam}`); return; }
         if (running.section !== section || running.exam !== exam) { replace(sallePath(running)); return; }
         const questions = await loadExam(section, exam);
         if (!gone) setSt({ step: "room", attempt: running, questions });

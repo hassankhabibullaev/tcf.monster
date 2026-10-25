@@ -223,7 +223,7 @@ delete, the daily cap, the key lock, the owner's skip, the refusals while a mock
 - **The page's memory**: the `MockStore` object the stage writes to.
 
 `MockStore.write(patch)` applies the patch in memory, writes localStorage and IndexedDB in the same tick, and queues a
-`PATCH /api/mock/:id` (debounced 2 s, `keepalive` when the tab hides or the page is left, one try every 10 s after a
+`PATCH /api/mock/:id` (20 s after the last change, `keepalive` when the tab hides or the page is left, one try every 10 s after a
 failure, for ever; `online` triggers a try). Every field carries a stamp (`t`, the server's clock); on opening, the
 three copies are merged field by field, the newest stamp wins, and what the server lacks is sent at once. Nothing
 asks the person to retry: there is no Retry button for saving anywhere in the mock.
@@ -462,7 +462,7 @@ Everything above stands, with these precisions from the build:
 - **The nightly close**: a sitting nobody moved for twelve hours is abandoned with the untaken test noted `stale`; a
   marking older than twelve hours is closed as `done` with what exists (no certificate when a stage has no mark).
 - **Browser** (`web/app/mock/`): `api.ts` (the calls, `useRunningMock`, `refreshMock`), `store.ts` (`MockStore`:
-  memory + localStorage + IndexedDB, PATCH debounced 2 s, retry 10 s, keepalive; answers merged by stamp, the furthest
+  memory + localStorage + IndexedDB, PATCH 20 s after the last change, retry 10 s, keepalive; answers merged by stamp, the furthest
   cursor, the longest draft), `shell.tsx` (`MockBar`, `MockHooks`), `Sitting.tsx` (the running mock: the stage's
   screen, the transition card, the end of a stage with retries 4 · 8 · 12 s then 30 s, the owner's switch),
   `Break.tsx`, `Transition.tsx`, `marking.ts` + `Marking.tsx` (the writing texts and the speaking clips handed in

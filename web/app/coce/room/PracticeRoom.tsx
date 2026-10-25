@@ -272,6 +272,8 @@ export function PracticeRoom({ section, level, lang, onExit, settings, onSetting
   const moreRows: MoreRow[] = [];
   if (canMark) moreRows.push({ icon: "flag", tone: colour === "green" ? "amber" : "ok", label: colour === "green" ? w.markAmber : w.markGreen, on: mark });
   if (canRetry) moreRows.push({ icon: "refresh", label: w.retry, on: retry });
+  // Réinitialiser, the laptop's small footer button, lives here on phones (confirmed by the same sheet)
+  if (colour !== "grey") moreRows.push({ icon: "x", label: w.reset, on: () => setResetOpen(true) });
   moreRows.push({ icon: reported.has(q.id) ? "x" : "alert", tone: "bad", label: reported.has(q.id) ? w.reported : w.report, on: openReport, off: reported.has(q.id) });
 
   return (

@@ -3,6 +3,7 @@
 export type Me = {
   id: string; email: string; name: string | null; created_at: string; target_nclc: number | null; exam_date: string | null;
   lang: "fr" | "en"; settings: Record<string, any>; /** on the app's side, the key on THIS device (main.tsx: sim/browser-score.ts keyStatusHere); the server's own copy is what a browser last reported */ gemini_status: string; isOwner: boolean;
+  /** false when the terms changed since the person accepted them: the three ticks are asked again, once */ terms_ok?: boolean;
 };
 
 export class ApiError extends Error {

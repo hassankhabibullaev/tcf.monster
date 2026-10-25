@@ -60,8 +60,10 @@ function load<T>(path: string): Promise<T> {
 }
 
 export const loadIndex = () => load<BankIndex>("/data/bank.json");
-export const loadLevel = (section: Section, level: Level) => load<Question[]>(`/data/${section}-${level}.json`);
-export const loadExam = (section: Section, nn: number) => load<Question[]>(`/data/exam-${section}-${String(nn).padStart(2, "0")}.json`);
+// a level holds its own level's questions and an exam its 39 positions: anything else in a file is not for a page
+// (worker/guard.ts: a program answering it gives itself away)
+export const loadLevel = (section: Section, level: Level) => load<Question[]>(`/data/${section}-${level}.json`).then((qs) => qs.filter((q) => q.section === section && q.level === level));
+export const loadExam = (section: Section, nn: number) => load<Question[]>(`/data/exam-${section}-${String(nn).padStart(2, "0")}.json`).then((qs) => qs.filter((q) => (q.position ?? 0) >= 1 && (q.position ?? 0) <= 39));
 
 /** a question's number is its index + 1 in the level file */
 export const numberOf = (questions: Question[], id: string) => questions.findIndex((q) => q.id === id) + 1;
