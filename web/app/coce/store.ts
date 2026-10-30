@@ -250,6 +250,10 @@ export const record = {
   },
   mark(section: Section, level: Level, qid: string, s: "green" | "amber") { push({ id: uuid(), section, level, t: stamp(), type: "mark", qid, s }); },
   reset(section: Section, level: Level, qid: string) { push({ id: uuid(), section, level, t: stamp(), type: "reset", qid }); },
+  /** « Recommencer le niveau »: every question of the level back to grey, one reset each (one bundle, one row) */
+  resetLevel(section: Section, level: Level) {
+    for (const qid of Object.keys(levelState(section, level).q)) push({ id: uuid(), section, level, t: stamp(), type: "reset", qid });
+  },
   pos(section: Section, level: Level, n: number) { if (levelState(section, level).pos !== n) push({ id: uuid(), section, level, t: stamp(), type: "pos", n }); },
 };
 /** what a level looks like right now (server copy + the queue), outside React */

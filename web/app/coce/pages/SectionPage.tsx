@@ -3,11 +3,11 @@
 // files once and list up to twenty questions, each opening the room at that question (`?q=37`).
 import { cached } from "../../api-cache.ts";
 import { useEffect, useMemo, useState } from "react";
-import { Chip, ColourBar, Button, Empty, Icon, SectionHead, Tabs, SECTION_NAME } from "../../../ui/ui.tsx";
+import { Chip, ColourBar, Button, Empty, Icon, SectionHead, Sheet, Tabs, SECTION_NAME } from "../../../ui/ui.tsx";
 import { linkProps } from "../../../ui/router.ts";
 import type { Lang } from "../../i18n.ts";
 import { api } from "../../api.ts";
-import { LEVELS, POINTS, EXAM_COUNT, counts, loadLevel, useSection, type Level, type Question } from "./deps.ts";
+import { LEVELS, POINTS, EXAM_COUNT, counts, loadLevel, record, useSection, type Level, type Question } from "./deps.ts";
 import { WORDS } from "./words.ts";
 import { levelSize, useIndex } from "./practice.ts";
 import { searchQuestions, type Hit } from "./search.ts";
@@ -47,6 +47,8 @@ function Practice({ section, lang }: { section: CoceSection; lang: Lang }) {
   const w = WORDS[lang];
   const { levels } = useSection(section);
   const index = useIndex();
+  // « Recommencer »: the level whose confirmation is open
+  const [restart, setRestart] = useState<Level | null>(null);
 
   if (!levels || index === undefined) {
     return <div className="cp-levels" aria-busy="true">{LEVELS.map((l) => <div key={l} className="skeleton cp-skel-row" />)}</div>;
@@ -75,7 +77,10 @@ function Practice({ section, lang }: { section: CoceSection; lang: Lang }) {
                   <span className="muted"><i className="cp-dot new" />{c.grey}</span>
                 </span>
               </span>
-              <a className="btn sm cp-open" aria-label={w.open} {...linkProps(`/${section}/practice/${level}`)}><span className="desk-only">{w.open}</span><Icon name="chevronRight" size={18} className="mob-only" /></a>
+              <span className="cp-open cp-acts">
+                {c.grey < n && <button type="button" className="btn sm quiet cp-restart" aria-label={w.restartLevel(level)} title={w.restart} onClick={() => setRestart(level)}><Icon name="refresh" size={16} /><span className="desk-only">{w.restart}</span></button>}
+                <a className="btn sm" aria-label={w.open} {...linkProps(`/${section}/practice/${level}`)}><span className="desk-only">{w.open}</span><Icon name="chevronRight" size={18} className="mob-only" /></a>
+              </span>
             </li>
           );
         })}
@@ -86,6 +91,10 @@ function Practice({ section, lang }: { section: CoceSection; lang: Lang }) {
         <span><i className="cp-dot bad" />{w.legend.red}</span>
         <span><i className="cp-dot amber" />{w.legend.amber}</span>
       </p>
+      <Sheet open={restart !== null} title={restart ? w.restartLevel(restart) : ""} onClose={() => setRestart(null)}
+        actions={<><Button onClick={() => setRestart(null)}>{w.cancel}</Button><Button kind="danger" onClick={() => { if (restart) record.resetLevel(section, restart); setRestart(null); }}>{w.restart}</Button></>}>
+        <p>{w.restartBody}</p>
+      </Sheet>
     </>
   );
 }

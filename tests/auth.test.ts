@@ -108,7 +108,7 @@ describe("sign-up", () => {
     expect((await call("/auth/verify", { email: "tester@example.com", code: right })).data.error).toBe("expired");
   });
 
-  it("a code lasts 5 minutes; a new one needs 30 s; five an hour at most", async () => {
+  it("a code lasts 5 minutes; a new one needs 60 s; three an hour at most (the first and two resends)", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
     await call("/auth/code", { email: "tester@example.com" });
@@ -118,7 +118,9 @@ describe("sign-up", () => {
     expect((await call("/auth/verify", { email: "tester@example.com", code: "000000" })).data.error).toBe("wrong"); // still alive
     vi.setSystemTime(new Date("2026-10-18T10:05:30Z"));
     expect((await call("/auth/verify", { email: "tester@example.com", code: first })).data.error).toBe("expired");
-    for (let i = 0; i < 4; i++) { vi.setSystemTime(new Date(Date.parse("2026-10-18T10:05:30Z") + i * 40000)); expect((await call("/auth/code", { email: "tester@example.com" })).status).toBe(200); }
+    vi.setSystemTime(new Date("2026-10-18T10:00:40Z"));
+    expect((await call("/auth/code", { email: "tester@example.com" })).data).toMatchObject({ error: "wait", wait: 20 });
+    for (let i = 0; i < 2; i++) { vi.setSystemTime(new Date(Date.parse("2026-10-18T10:05:30Z") + i * 61000)); expect((await call("/auth/code", { email: "tester@example.com" })).status).toBe(200); }
     vi.setSystemTime(new Date("2026-10-18T10:15:00Z"));
     expect((await call("/auth/code", { email: "tester@example.com" })).data.error).toBe("too_many");
     vi.setSystemTime(new Date("2026-10-18T11:12:00Z"));

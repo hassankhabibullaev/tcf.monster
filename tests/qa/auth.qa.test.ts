@@ -63,7 +63,7 @@ describe("codes", () => {
     expect(qa.count("SELECT COUNT(*) n FROM users")).toBe(0);
   });
 
-  it("a second code inside 30 s says how long to wait; the first code still works", async () => {
+  it("a second code inside 60 s says how long to wait; the first code still works", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-18T10:00:00Z"));
     await qa.call("/api/auth/code", { body: { email: "a@b.com" } });
@@ -71,7 +71,7 @@ describe("codes", () => {
     vi.setSystemTime(new Date("2026-10-18T10:00:12Z"));
     const again = await qa.call("/api/auth/code", { body: { email: "a@b.com" } });
     expect(again.status).toBe(429);
-    expect(again.data).toEqual({ error: "wait", wait: 18 });
+    expect(again.data).toEqual({ error: "wait", wait: 48 });
     expect(qa.mails.length).toBe(1);
     expect((await qa.call("/api/auth/verify", { body: { email: "a@b.com", code: first } })).status).toBe(200);
   });

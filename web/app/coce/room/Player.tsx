@@ -54,23 +54,28 @@ export function Player({ src, resetKey, maxPlays, scrubber, autoplay, lang, lock
   const cb = useRef({ onEnded, onError, onPlays });
   cb.current = { onEnded, onError, onPlays };
 
-  // the playable address: the recording held in memory, or the address itself for anything else
+  // the playable address: the recording held in memory, or the address itself for anything else. It is kept with the
+  // recording (and the try) it belongs to, so the render where the question changes already has none: the element never
+  // reloads the last question's memory copy, released at that moment (that load failed and passed the question over)
   const whole = src.startsWith("/media/");
-  const [url, setUrl] = useState<string | null>(whole ? null : src);
+  const [held, setHeld] = useState<{ src: string; tries: number; url: string } | null>(null);
+  const url = !whole ? src : held && held.src === src && held.tries === tries ? held.url : null;
+  const urlRef = useRef(url);
+  urlRef.current = url;
   const [want, setWant] = useState(preload !== "none");
   const pending = useRef<null | (() => void)>(null); // a press that came before the file
   useEffect(() => { setWant(preload !== "none"); pending.current = null; }, [src, preload]);
   useEffect(() => {
-    if (!whole) { setUrl(src); return; }
-    setUrl(null);
-    if (!want) return;
+    if (!whole || !want) return;
     let gone = false, made = "";
     fetch(src)
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
-      .then((b) => { if (gone) return; made = URL.createObjectURL(b); setUrl(made); })
-      .catch(() => { if (!gone) setUrl(src); }); // the element tries the address itself and says if it fails
+      .then((b) => { if (gone) return; made = URL.createObjectURL(b); setHeld({ src, tries, url: made }); })
+      .catch(() => { if (!gone) setHeld({ src, tries, url: src }); }); // the element tries the address itself and says if it fails
     return () => { gone = true; if (made) URL.revokeObjectURL(made); };
   }, [src, whole, want, tries]);
+  // one quiet second try before « Audio indisponible » (a network hiccup), once per recording
+  const retried = useRef("");
   /** run now if the file is here, else fetch it and run once it is */
   const whenReady = (fn: () => void) => { if (url) fn(); else { pending.current = fn; setWant(true); } };
 
@@ -150,7 +155,12 @@ export function Player({ src, resetKey, maxPlays, scrubber, autoplay, lang, lock
         onLoadedMetadata={(e) => setDur(e.currentTarget.duration)}
         onDurationChange={(e) => setDur(e.currentTarget.duration)}
         onEnded={() => { setPlaying(false); setEnded(true); cb.current.onEnded?.(); }}
-        onError={() => { setFailed(true); setPlaying(false); cb.current.onError?.(); }}
+        onError={(e) => {
+          // only the recording on show counts: an error from an address the element has already left says nothing
+          if (!urlRef.current || e.currentTarget.getAttribute("src") !== urlRef.current) return;
+          if (retried.current !== resetKey) { retried.current = resetKey; setTries((n) => n + 1); return; }
+          setFailed(true); setPlaying(false); cb.current.onError?.();
+        }}
       />
       <div className="cr-pill">
         {failed ? (

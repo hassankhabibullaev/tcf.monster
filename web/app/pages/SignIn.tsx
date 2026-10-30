@@ -42,6 +42,8 @@ export function SignIn() {
   const [error, setError] = useState<ErrorText | null>(() => (new URLSearchParams(location.search).has("blocked") ? (w: typeof DICTS.fr) => w.blocked : null));
   const [shake, setShake] = useState(0);
   const [wait, setWait] = useState(0);
+  // « Renvoyer » twice at most from this page (the server allows the first code and two more an hour)
+  const [resends, setResends] = useState(0);
   const errorLine = error?.(t, lang) ?? null;
   const addr = email.trim();
 
@@ -125,10 +127,11 @@ export function SignIn() {
     try {
       await guarded("/auth/code", { email: addr, lang, why }, "code");
       remember();
-      setPurpose(why); setCode(""); setWait(30); goTo("code");
+      if (step === "code") setResends((n) => n + 1); else setResends(0);
+      setPurpose(why); setCode(""); setWait(60); goTo("code");
     } catch (err) {
       const d = err instanceof ApiError ? err.data : {};
-      if (d.error === "wait") { setPurpose(why); setCode(""); setWait(Number(d.wait) || 30); goTo("code"); }
+      if (d.error === "wait") { setPurpose(why); setCode(""); setWait(Number(d.wait) || 60); goTo("code"); }
       else fail(err);
     }
     setBusy(false);
@@ -243,8 +246,11 @@ export function SignIn() {
           <CodeBoxes value={code} onChange={setCode} shake={shake} disabled={busy} />
           <span className="afield-error" role={error ? "alert" : undefined}>{errorLine ?? ""}</span>
           <Button kind="primary" className="full" busy={busy} disabled={code.length !== 6} onClick={() => void verify()}>{purpose === "signup" ? t.createMine : t.continue}</Button>
+          <p className="muted small auth-note">{t.spamNote}</p>
           <div className="auth-links center">
-            <button type="button" className="linklike" disabled={wait > 0 || busy} onClick={() => void sendCode(purpose)}>{wait > 0 ? t.resendIn(wait) : t.resend}</button>
+            {resends < 2
+              ? <button type="button" className="linklike" disabled={wait > 0 || busy} onClick={() => void sendCode(purpose)}>{wait > 0 ? t.resendIn(wait) : t.resend}</button>
+              : <p className="muted small auth-note">{t.noMoreResend}</p>}
           </div>
         </div>
       )}

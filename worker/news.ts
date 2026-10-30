@@ -14,7 +14,7 @@ type U = { id: string; email: string; name: string | null; lang: string; setting
 /** the welcome, if this person has a name, was never welcomed and today's mails leave room; claimed before sending */
 export async function maybeWelcome(env: Env, userId: string) {
   const u = await env.DB.prepare("SELECT id, email, name, lang, settings FROM users WHERE id = ? AND name IS NOT NULL AND welcomed_at IS NULL").bind(userId).first<U>();
-  if (!u || mailsOff(u.settings) || (await sentToday(env)) >= newsCap(env)) return false;
+  if (!u || mailsOff(u.settings) || (await sentToday(env)) >= (await newsCap(env))) return false;
   const claim = await env.DB.prepare("UPDATE users SET welcomed_at = ? WHERE id = ? AND welcomed_at IS NULL").bind(nowIso(), u.id).run();
   if (!claim.meta.changes) return false;
   await sendDesigned(env, u.email, "welcome", { lang: u.lang, userId: u.id, name: u.name });
@@ -48,7 +48,7 @@ const AFTER_DAYS = 4;
 /** the nightly job (22:00 UTC: the evening before in the Americas, the small hours of the next day in Asia, so « the day
  *  before » is each person's own day): good luck, how did it go, and any welcome that waited for room */
 export async function newsJob(env: Env) {
-  let room = Math.min(NIGHT_MAX, newsCap(env) - (await sentToday(env)));
+  let room = Math.min(NIGHT_MAX, (await newsCap(env)) - (await sentToday(env)));
   const today = nowIso().slice(0, 10);
   const rows = (await env.DB.prepare(`SELECT id, email, name, lang, settings, exam_date, luck_for, after_for FROM users
     WHERE password IS NOT NULL AND exam_date BETWEEN ? AND ?`).bind(shift(today, -(AFTER_DAYS + 2)), shift(today, 2)).all<U>()).results;

@@ -11,6 +11,7 @@ const fr = {
   questions: (n: number) => `${n} questions`,
   levelWorth: (p: number, n: number, t: number) => `Une question vaut ${p} points ; les ${n} de ce niveau font ${t} des 699 points d'un examen.`,
   open: "Ouvrir", seenOf: (seen: number, of: number) => `${seen} / ${of} vues`, pts: (p: number) => `${p} pts`,
+  restart: "Recommencer", restartLevel: (l: string) => `Recommencer le niveau ${l} ?`, restartBody: "Toutes ses questions redeviennent grises, comme jamais vues. Vos examens ne changent pas.",
   search: "Rechercher une question", noHits: "Aucune question ne correspond.",
   legend: { grey: "Gris · nouveau", green: "Vert · juste du premier coup", red: "Rouge · faux", amber: "Ambre · corrigé" },
   // exams
@@ -59,6 +60,7 @@ const en: Words = {
   questions: (n) => `${n} questions`,
   levelWorth: (p, n, t) => `One question is worth ${p} points; the ${n} at this level make ${t} of an exam's 699.`,
   open: "Open", seenOf: (seen, of) => `${seen} / ${of} seen`, pts: (p) => `${p} pts`,
+  restart: "Start over", restartLevel: (l) => `Start level ${l} over?`, restartBody: "All its questions go back to grey, as if never seen. Your exams don't change.",
   search: "Search the questions", noHits: "No question matches.",
   legend: { grey: "Grey · new", green: "Green · right the first time", red: "Red · wrong", amber: "Amber · corrected" },
   examNo: (n) => `no. ${n}`, examTitle: (s, n) => `Exam ${s.toUpperCase()} no. ${n}`,

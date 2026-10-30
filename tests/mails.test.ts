@@ -214,7 +214,8 @@ describe("the backup sender", () => {
     Object.assign(env, { BREVO_API_KEY: "brevo-key" });
     raw.prepare("DELETE FROM codes").run();
     expect((await call("/auth/code", { email: "lea@example.com", lang: "en" })).status).toBe(200);
-    expect(calls).toEqual(["resend", "resend", "brevo"]);
+    // the failed code, the owner's alert about it (Resend still refusing), the second code, then Brevo
+    expect(calls).toEqual(["resend", "resend", "resend", "brevo"]);
     expect(mails.at(-1)!.text).toMatch(/Your code is \d{6}/);
     expect((raw.prepare("SELECT ok, detail FROM mail ORDER BY rowid DESC").get() as Row)).toEqual({ ok: 1, detail: "brevo" });
   });
@@ -332,5 +333,51 @@ describe("one request for a person's reads", () => {
     expect(Object.keys(r.data.extra).sort()).toEqual(["/attempts?section=co", "/mock/list", "/progress?section=ce"]); // the numbers never ride along (CPU)
     expect(r.data.extra["/attempts?section=co"]).toEqual({ attempts: [] });
     expect((await call("/me?with=/me/stats")).status).toBe(401); // signed out: nothing
+  });
+});
+
+describe("codes that do not go out (2026-10-30)", () => {
+  it("Brevo with a refused key is no room: the day is Resend's 100 again until Brevo answers", async () => {
+    Object.assign(env, { BREVO_API_KEY: "brevo-key" });
+    const now = new Date().toISOString();
+    raw.prepare("INSERT INTO mail (at, email, kind, ok, detail) VALUES (?, 'x@example.com', 'signup', 0, ?)").run(now, `Resend's day is used up · brevo HTTP 401 {"message":"Key not found"}`);
+    for (let i = 0; i < 85; i++) raw.prepare("INSERT INTO mail (at, email, kind, ok) VALUES (?, 'x@example.com', 'welcome', 1)").run(now);
+    expect((await call("/auth/code", { email: "new@example.com", lang: "en" })).data.error).toBe("busy");
+    // Brevo worked since: its 300 count again
+    raw.prepare("INSERT INTO mail (at, email, kind, ok, detail) VALUES (?, 'x@example.com', 'signup', 1, 'brevo')").run(now);
+    expect((await call("/auth/code", { email: "new@example.com", lang: "en" })).status).toBe(200);
+  });
+
+  it("a code that fails alerts the owner with the address and the reason, once every half hour", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T10:00:00Z"));
+    const to: string[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      const b = JSON.parse(String(init.body));
+      to.push(b.to[0]);
+      if (b.to[0] === "owner@example.com") { mails.push({ to: b.to[0], subject: b.subject, text: b.text, html: b.html }); return new Response("{}", { status: 200 }); }
+      return new Response('{"message":"Invalid `to` field"}', { status: 422 });
+    });
+    expect((await call("/auth/code", { email: "lea@example.com", lang: "en" })).status).toBe(502);
+    expect(mails.at(-1)!.to).toBe("owner@example.com");
+    expect(mails.at(-1)!.subject).toBe("tcf.monster: 1 code not sent");
+    expect(mails.at(-1)!.text).toMatch(/signup · lea@example\.com · HTTP 422/);
+    vi.setSystemTime(new Date("2026-10-30T10:10:00Z"));
+    await call("/auth/code", { email: "max@example.com", lang: "en" });
+    expect(to.filter((x) => x === "owner@example.com").length).toBe(1);
+    vi.setSystemTime(new Date("2026-10-30T10:31:00Z"));
+    await call("/auth/code", { email: "zoe@example.com", lang: "en" });
+    expect(to.filter((x) => x === "owner@example.com").length).toBe(2);
+    expect(mails.at(-1)!.text).toMatch(/max@example\.com/);
+    expect(mails.at(-1)!.text).toMatch(/zoe@example\.com/);
+    expect(mails.at(-1)!.text).not.toMatch(/lea@example\.com/);
+  });
+
+  it("an address the mail services refuse (a dot before the @, two dots) is refused at the door, no mail", async () => {
+    for (const e of ["name.@example.com", ".name@example.com", "na..me@example.com", "name@.example.com"]) {
+      expect((await call("/auth/exists", { email: e })).status).toBe(400);
+    }
+    expect((await call("/auth/exists", { email: "na.me@example.com" })).status).toBe(200);
+    expect(raw.prepare("SELECT COUNT(*) n FROM mail").get()).toEqual({ n: 0 });
   });
 });

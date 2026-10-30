@@ -198,12 +198,14 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
     const id = setTimeout(() => { setGrace(null); if (phaseRef.current === "run") next(); }, Math.max(0, grace - Date.now()));
     return () => clearTimeout(id);
   }, [grace, next]);
+  // a recording that still fails after the player's quiet second try: the strict exam skips the question (it cannot be
+  // heard again); in Free mode it stays, « Réessayer » in the player and the four options open
   const onAudioError = useCallback(() => {
-    if (!q) return;
+    if (!q || !strict) return;
     setAnswer("-");
     setHeardId(q.id);
     setGrace(Date.now() + 1200);
-  }, [q, setAnswer]);
+  }, [q, setAnswer, strict]);
   // the real CO exam: the recording has ended; what is left of the question's share of the 35 minutes starts now
   const onRecordingEnded = useCallback(() => {
     if (!q) return;
@@ -306,7 +308,7 @@ export function ExamRoom({ section, exam, attempt, questions, lang, onFinished, 
   const right = (
     <>
       <div className="cr-stem"><p lang="fr">{q.stem}</p></div>
-      <Options options={q.options} chosen={chosen} answer={q.answer} reveal={false} disabled={phase !== "run" || given === "-"} english={false} lang={lang} onPick={setAnswer} />
+      <Options options={q.options} chosen={chosen} answer={q.answer} reveal={false} disabled={phase !== "run" || (strict && given === "-")} english={false} lang={lang} onPick={setAnswer} />
     </>
   );
   const progress: Progress = { n, total, parts: { done }, onOpen: () => (phone ? setPicker(true) : rail.current?.focus()), label: `${w.questionOf(n, total)} · ${w.done} ${done} · ${w.todo} ${total - done}`, popup: phone };

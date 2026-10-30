@@ -25,7 +25,7 @@ import { useRoomWords } from "./words.ts";
 import { api, ApiError } from "../../api.ts";
 import { useToast } from "../../main.tsx";
 
-/** `me.settings.help`: the toggles, per section, all off until turned on (`autoplay` is read no more, kept for old rows) */
+/** `me.settings.help`: the toggles, per section, all off until turned on (`co.autoplay`: the recording starts when a question opens) */
 export type Help = {
   co?: { transcript?: boolean; hint?: boolean; english?: boolean; autoplay?: boolean; /** an old phone round's switch, read no more */ optionsEn?: boolean };
   ce?: { hint?: boolean; english?: boolean; optionsEn?: boolean };
@@ -122,7 +122,8 @@ export function PracticeRoom({ section, level, lang, onExit, settings, onSetting
   const english = !!h.english;
   const hint = !!h.hint;
   const transcript = section === "co" && !!help.co?.transcript;
-  const setSwitch = (key: "transcript" | "hint" | "english", v: boolean) => {
+  const autoplay = section === "co" && !!help.co?.autoplay;
+  const setSwitch = (key: "transcript" | "hint" | "english" | "autoplay", v: boolean) => {
     const next: Help = { ...help, [section]: { ...(section === "co" ? help.co : help.ce), [key]: v } };
     setHelp(next);
     onSettings?.(next);
@@ -196,7 +197,7 @@ export function PracticeRoom({ section, level, lang, onExit, settings, onSetting
   const left = section === "co" && phone ? (
     <>
       <PanelBar><span className="spacer" />{langSeg}</PanelBar>
-      <Player ref={player} src={q.audio ?? ""} resetKey={q.id} maxPlays={null} scrubber autoplay={false} lang={lang} />
+      <Player ref={player} src={q.audio ?? ""} resetKey={q.id} maxPlays={null} scrubber autoplay={autoplay} lang={lang} />
       {q.image && <img className="cr-picture cr-picture-top" src={q.image} alt="" />}
       <div className="cr-text cr-folds">
         <Fold title={w.transcript} open={transcript} onToggle={(v) => setSwitch("transcript", v)} disabled={!q.transcript}>
@@ -209,8 +210,9 @@ export function PracticeRoom({ section, level, lang, onExit, settings, onSetting
     </>
   ) : section === "co" ? (
     <>
-      <Player ref={player} src={q.audio ?? ""} resetKey={q.id} maxPlays={null} scrubber autoplay={false} lang={lang} />
+      <Player ref={player} src={q.audio ?? ""} resetKey={q.id} maxPlays={null} scrubber autoplay={autoplay} lang={lang} />
       <PanelBar>
+        <Switch label={w.autoplay} on={autoplay} onChange={(v) => setSwitch("autoplay", v)} />
         <Switch label={w.transcript} on={transcript} onChange={(v) => setSwitch("transcript", v)} />
         <Switch label={w.shortHint} on={hint} disabled={!q.hint} onChange={(v) => setSwitch("hint", v)} />
         {langSeg}
@@ -268,8 +270,9 @@ export function PracticeRoom({ section, level, lang, onExit, settings, onSetting
   const more = (
     <button type="button" className="cr-more-btn mob-only" aria-label={w.more} aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)}><Icon name="more" size={20} /></button>
   );
-  // Marquer, Réessayer when they apply; Signaler un problème always (so the sheet is never empty before an answer)
+  // Lecture auto (listening) as a switch row; Marquer, Réessayer when they apply; Signaler un problème always
   const moreRows: MoreRow[] = [];
+  if (section === "co") moreRows.push({ icon: "refresh", label: w.autoplay, on: () => setSwitch("autoplay", !autoplay), toggle: autoplay });
   if (canMark) moreRows.push({ icon: "flag", tone: colour === "green" ? "amber" : "ok", label: colour === "green" ? w.markAmber : w.markGreen, on: mark });
   if (canRetry) moreRows.push({ icon: "refresh", label: w.retry, on: retry });
   // Réinitialiser, the laptop's small footer button, lives here on phones (confirmed by the same sheet)

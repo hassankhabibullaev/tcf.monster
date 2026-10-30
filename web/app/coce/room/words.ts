@@ -10,7 +10,7 @@ const fr = {
   back: "Retour", questionOf: (n: number, of: number) => `Question ${n} sur ${of}`,
   pickerTitle: "Questions", timeLeft: "Temps restant", timeUp: "Temps écoulé",
   // help toggles on the panel line
-  transcript: "Transcription", hint: "Indice", shortHint: "Indice court", english: "Traduction anglaise",
+  transcript: "Transcription", hint: "Indice", shortHint: "Indice court", english: "Traduction anglaise", autoplay: "Lecture auto",
   fullText: "Texte complet", view: "Affichage", text: "Texte",
   hintNote: "Résumé écrit pour l'entraînement, pas le texte original.",
   // footer
@@ -53,7 +53,7 @@ const en: Words = {
   practice: "Practice", training: "Free",
   back: "Back", questionOf: (n, of) => `Question ${n} of ${of}`,
   pickerTitle: "Questions", timeLeft: "Time left", timeUp: "Time is up",
-  transcript: "Transcript", hint: "Hint", shortHint: "Short hint", english: "English translation",
+  transcript: "Transcript", hint: "Hint", shortHint: "Short hint", english: "English translation", autoplay: "Autoplay",
   fullText: "Full text", view: "View", text: "Text",
   hintNote: "A summary written for practice, not the original text.",
   prev: "Previous", next: "Next", retry: "Retry", finish: "Complete the test", resume: "Resume",

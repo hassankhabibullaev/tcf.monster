@@ -323,8 +323,10 @@ button.cr-pick:hover { border-color: var(--ink); }
      itself, the options docked above the footer in a box of their own, the same place whatever the question */
   .cr[data-mode="exam"] .cr-body { overflow: hidden; gap: 10px; padding-bottom: var(--cr-foot); }
   .cr[data-mode="exam"] .cr-left { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 10px; }
-  .cr[data-mode="exam"] .cr-text { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: var(--sb-gutter); scrollbar-width: none; }
-  .cr[data-mode="exam"] .cr-right { flex: none; height: 332px; overflow: auto; padding: 10px 0 8px; border-top: 1px solid var(--line); scrollbar-width: none; }
+  /* (the reading passage is the left panel's first child: named as such too, or the plain phone rule below, as strong
+     and later, takes its scrolling away and the passage runs under the question and the options) */
+  .cr[data-mode="exam"] .cr-text, .cr[data-mode="exam"] .cr-left > .cr-text:first-child { flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: var(--sb-gutter); scrollbar-width: none; }
+  .cr[data-mode="exam"] .cr-right { flex: none; height: 332px; max-height: 55%; overflow: auto; padding: 10px 0 8px; border-top: 1px solid var(--line); background: var(--bg); scrollbar-width: none; }
   .cr-switch { height: 28px; font-size: 12px; padding: 0 6px; }
   /* the body is the page: it scrolls under the top line and the footer; the two panels lose their boxes */
   .cr-body { display: flex; flex-direction: column; gap: 12px; overflow: auto; padding: calc(var(--cr-head) + 12px) 16px calc(var(--cr-foot) + 12px); scroll-padding: var(--cr-head) 0 var(--cr-foot); overscroll-behavior: contain; }

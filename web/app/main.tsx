@@ -1,4 +1,4 @@
-import { StrictMode, useCallback, useEffect, useMemo, useState, createContext, useContext, useRef, useSyncExternalStore } from "react";
+import { Component, StrictMode, useCallback, useEffect, useMemo, useState, createContext, useContext, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "../ui/tokens.css";
 import "../ui/base.css";
@@ -231,7 +231,7 @@ function App() {
   let m: RegExpMatchArray | null;
   /** the exam routes exist for n° 1 … 40 only (`/co/examen/41` is not a page) */
   const examNo = (s: string) => { const n = Number(s); return n >= 1 && n <= EXAMS ? n : null; };
-  if (modern || me === undefined || (me === null && !isPublic) || (me && isPublic) || (me && me.name && path === "/welcome")) page = <div className="boot" aria-busy="true" />;
+  if (modern || me === undefined || (me === null && !isPublic) || (me && isPublic) || (me && me.name && path === "/welcome")) page = <Stuck lang={lang} />;
   else if (path === "/sign-in") page = <SignIn />;
   else if (path === "/welcome") page = <Welcome />;
   else if (path === "/terms-again") page = <TermsAgain />;
@@ -276,4 +276,23 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+/** what shows instead of an empty page: the start that takes too long, or a page that could not be drawn */
+function Stuck({ lang, crashed }: { lang: Lang; crashed?: boolean }) {
+  const t = DICTS[lang];
+  return (
+    <div className="boot boot-stuck" role="status" data-now={crashed || undefined}>
+      <p><b>{crashed ? t.crashed : t.bootSlow}</b></p>
+      <button type="button" className="btn primary" onClick={() => location.reload()}>{t.reload}</button>
+      <p className="muted small">{t.stillStuck} <a href="https://t.me/tcfmonsteradmin" target="_blank" rel="noreferrer">@tcfmonsteradmin</a></p>
+    </div>
+  );
+}
+
+/** a screen that throws while drawing: the message and « Recharger », never a blank page */
+class Catch extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? <Stuck lang={guessLang()} crashed /> : this.props.children; }
+}
+
+createRoot(document.getElementById("root")!).render(<StrictMode><Catch><App /></Catch></StrictMode>);

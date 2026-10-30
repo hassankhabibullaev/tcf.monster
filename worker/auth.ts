@@ -5,7 +5,7 @@
 import { type Env, json, fail, nowIso, readJson, rateLimit, ipOf } from "./util.ts";
 import { type GuardState, parseSigns } from "./guard.ts";
 import { isOwnerEmail } from "./access.ts";
-import { sendDesigned, sentToday, dayTotal } from "./mail.ts";
+import { sendDesigned, sentToday, dayTotal, alertOwner } from "./mail.ts";
 import { networkState, markNetwork } from "./networks.ts";
 
 export const SESSION_COOKIE = "tcfm_session";
@@ -15,8 +15,9 @@ const SESSION_MAX_DAYS = 90;
 const OWNER_SESSION_MAX_DAYS = 14;
 const CODE_MINUTES = 5;
 const CODE_TRIES = 5;
-const CODES_PER_HOUR = 5;
-const RESEND_SECONDS = 30;
+/** the first code and two more an hour (the page offers « Renvoyer le code » after a minute, twice) */
+const CODES_PER_HOUR = 3;
+const RESEND_SECONDS = 60;
 /** codes sent for one network (a keyed hash of its address) in a day, whatever the addresses asked for; a network a
  *  bot was caught on lately (worker/networks.ts) gets fewer */
 const NET_CODES_PER_DAY = 15;
@@ -85,9 +86,11 @@ export async function networkOf(env: Env, req: Request): Promise<string | null> 
   return ip ? (await hmac(pepper(env), `net:${netPart(ip)}`)).slice(0, 20) : null;
 }
 
+/** an address the mail services take: no dot at either end of a part, no two dots in a row (« name.@example.com », a
+ *  typo they refuse, once got « code sent » and no mail) */
 export const cleanEmail = (v: unknown) => {
   const e = String(v ?? "").trim().toLowerCase();
-  return e.length <= 200 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
+  return e.length <= 200 && /^[^\s@.]([^\s@]*[^\s@.])?@[^\s@.-][^\s@]*\.[^\s@.]+$/.test(e) && !e.includes("..") ? e : null;
 };
 /** the stretched password as the browser sends it: 43 base64url characters */
 const cleanStretched = (v: unknown) => (typeof v === "string" && /^[A-Za-z0-9_-]{43}$/.test(v) ? v : null);
@@ -181,6 +184,7 @@ export async function sendCode(env: Env, email: string, purpose: "email" | "dele
     ON CONFLICT(email, purpose) DO UPDATE SET code_hash = ?3, created_at = ?4, expires_at = ?5, tries = 0, proof_hash = NULL, sends = ?6, window_at = ?7, day_sends = ?8, day_at = ?9`)
     .bind(email, purpose, await sha256(`${email}:${code}`), at, new Date(now + CODE_MINUTES * 60000).toISOString(), sends, inWindow ? row!.window_at : at, daySends, inDay ? row!.day_at : at).run();
   const sent = await sendDesigned(env, email, mail, { lang, code, net });
+  if (!sent.ok) await alertOwner(env).catch(() => {});
   return sent.ok ? { ok: true } : { error: "mail" };
 }
 
@@ -217,7 +221,7 @@ export async function accountRoom(env: Env) {
 }
 const ACCOUNT_RESERVE = 15;
 async function signupRoom(env: Env) {
-  const day = dayTotal(env) - ACCOUNT_RESERVE;
+  const day = (await dayTotal(env)) - ACCOUNT_RESERVE;
   if ((await sentToday(env)) >= day) return false;
   const hour = await env.DB.prepare("SELECT COUNT(*) n FROM mail WHERE kind = 'signup' AND at >= ?").bind(new Date(Date.now() - 3600000).toISOString()).first<{ n: number }>();
   return Number(hour?.n ?? 0) < SIGNUP_CODES_PER_HOUR;

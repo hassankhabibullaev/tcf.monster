@@ -11,6 +11,8 @@ type Top = {
   people: number; joinedToday: number; joined7: number; joined30: number;
   activeToday: number; active7: number; active30: number;
   answered7: number; exams7: number; expression7: number; disputesOpen: number;
+  /** the e-mails that could not be sent in the last day (a code someone is waiting for) */
+  mailFailed: { at: string; email: string; kind: string; detail: string | null }[];
   today: string; joined: { d: string; n: number }[]; active: { d: string; n: number }[];
 };
 
@@ -57,6 +59,14 @@ function Overview() {
         <Stat label="Answers · 7 d" value={num(o.answered7)} sub={`${num(o.exams7)} CO·CE exams · ${num(o.expression7)} EE·EO`} />
         <Stat label="Open disputes" value={num(o.disputesOpen)} sub="to handle" to="/disputes" />
       </div>
+      {o.mailFailed?.length > 0 && (
+        <section className="card pad">
+          <div className="card-head"><h2>E-mails not sent · last 24 h</h2><span className="muted">{num(o.mailFailed.length)}</span></div>
+          <ul className="plain-list">
+            {o.mailFailed.map((m, i) => <li key={i}><b>{m.email}</b> <span className="muted">· {m.kind} · {when(m.at)} · {(m.detail ?? "").slice(0, 120)}</span></li>)}
+          </ul>
+        </section>
+      )}
       <div className="grid-2">
         <Bars title="Sign-ups" rows={o.joined} today={o.today} word="sign-ups" />
         <Bars title="People practising" rows={o.active} today={o.today} word="people" />

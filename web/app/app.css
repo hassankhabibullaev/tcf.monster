@@ -1,5 +1,10 @@
 /* tcf.monster app. Every value comes from tokens.css; one phone block at the end. */
 .boot { min-height: 100vh; }
+/* the start that takes too long (8 s), or a page that could not be drawn (at once): a message, never a blank page */
+.boot-stuck { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px 16px; text-align: center; opacity: 0; animation: boot-show var(--duration-move, .3s) ease-out 8s forwards; }
+.boot-stuck[data-now] { animation-delay: 0s; }
+.boot-stuck p { margin: 0; max-width: 34em; }
+@keyframes boot-show { to { opacity: 1; } }
 .display { font-family: var(--font-display); font-weight: 700; font-size: 40px; line-height: 1.08; letter-spacing: -0.02em; }
 .strong { font-weight: 800; }
 .full { width: 100%; }
@@ -468,3 +473,5 @@ select.pinput { cursor: pointer; }
 /* the terms changed: the title and the three ticks of sign-up, centred like the welcome sentence */
 .terms-again { display: flex; flex-direction: column; gap: 18px; width: min(520px, 100% - 32px); margin: 8vh auto 0; }
 .terms-again h1 { font-family: var(--font-display); font-size: 28px; line-height: 1.2; margin: 0; }
+/* the code step: the spam line and the last resend's words */
+.auth-note { margin: 0; text-align: center; line-height: 1.45; }

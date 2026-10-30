@@ -7,14 +7,21 @@ import { type Env, nowIso } from "./util.ts";
 import { pepper } from "./auth.ts";
 import { type MailId, type Lang, renderMail, STOPPABLE, SITE } from "./mails.ts";
 
-export type MailKind = "signup" | "signin" | "reset" | "delete" | "deleted" | "welcome" | "luck" | "after" | "test";
+export type MailKind = "signup" | "signin" | "reset" | "delete" | "deleted" | "welcome" | "luck" | "after" | "test" | "alert";
 export const RESEND_DAY = 100;
 export const BREVO_DAY = 300;
-/** every e-mail the free plans send in a day: Resend's 100, plus Brevo's 300 when the backup is set */
-export const dayTotal = (env: Env) => RESEND_DAY + (env.BREVO_API_KEY ? BREVO_DAY : 0);
+/** Brevo counts as room only while it works: set, and its last answer not a refused key (a wrong key once let the
+ *  welcome mails spend Resend's day, then every code of the evening failed) */
+export async function brevoUsable(env: Env) {
+  if (!env.BREVO_API_KEY) return false;
+  const last = await env.DB.prepare("SELECT detail FROM mail WHERE detail LIKE '%brevo%' ORDER BY id DESC LIMIT 1").first<{ detail: string }>();
+  return !/brevo HTTP 40[13]/.test(last?.detail ?? "");
+}
+/** every e-mail the free plans send in a day: Resend's 100, plus Brevo's 300 when the backup works */
+export const dayTotal = async (env: Env) => RESEND_DAY + ((await brevoUsable(env)) ? BREVO_DAY : 0);
 /** the last 50 of the day are for codes only: the welcome and exam mails stop there (and wait for the next night) */
 export const CODES_ONLY = 50;
-export const newsCap = (env: Env) => dayTotal(env) - CODES_ONLY;
+export const newsCap = async (env: Env) => (await dayTotal(env)) - CODES_ONLY;
 
 export const mailReady = (env: Env) => Boolean(env.MAIL_FROM && (env.RESEND_API_KEY || env.BREVO_API_KEY));
 
@@ -66,6 +73,32 @@ export async function sendMail(env: Env, to: string, kind: MailKind, subject: st
   }
   await env.DB.prepare("INSERT INTO mail (at, email, kind, ok, detail, ip) VALUES (?, ?, ?, ?, ?, ?)").bind(nowIso(), to, kind, out.ok ? 1 : 0, out.detail || null, net).run();
   return { ok: out.ok, detail: out.detail };
+}
+
+/** a code that could not be sent: the owner hears of it by e-mail with the address and the reason (one alert every
+ *  half hour at most, the failures since the last one listed), to help the person by hand */
+export const ALERT_MINUTES = 30;
+export async function alertOwner(env: Env) {
+  const to = env.OWNER_EMAIL;
+  if (!to) return;
+  const last = await env.DB.prepare("SELECT at FROM mail WHERE kind = 'alert' ORDER BY id DESC LIMIT 1").first<{ at: string }>();
+  if (last && Date.now() - Date.parse(last.at) < ALERT_MINUTES * 60_000) return;
+  const since = last?.at ?? new Date(Date.now() - 86_400_000).toISOString();
+  const { results } = await env.DB.prepare("SELECT at, email, kind, detail FROM mail WHERE ok = 0 AND kind IN ('signup', 'signin', 'reset', 'delete') AND at > ? ORDER BY id LIMIT 30")
+    .bind(since).all<{ at: string; email: string; kind: string; detail: string | null }>();
+  if (!results.length) return;
+  const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  const lines = results.map((r) => `${r.at.slice(0, 16).replace("T", " ")} UTC · ${r.kind} · ${r.email} · ${(r.detail ?? "").slice(0, 160)}`);
+  const text = `tcf.monster could not send ${results.length} code${results.length === 1 ? "" : "s"}:\n\n${lines.join("\n")}\n\nThe admin's People page lists every failure of the last day.`;
+  const html = `<p>tcf.monster could not send ${results.length} code${results.length === 1 ? "" : "s"}:</p><ul>${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul><p>The admin's People page lists every failure of the last day.</p>`;
+  await sendMail(env, to, "alert", `tcf.monster: ${results.length} code${results.length === 1 ? "" : "s"} not sent`, html, text);
+}
+
+/** the mails that failed in the last day, for the admin (newest first) */
+export async function failedMails(env: Env) {
+  const { results } = await env.DB.prepare("SELECT at, email, kind, detail FROM mail WHERE ok = 0 AND at >= ? ORDER BY id DESC LIMIT 50")
+    .bind(new Date(Date.now() - 86_400_000).toISOString()).all<{ at: string; email: string; kind: string; detail: string | null }>();
+  return results;
 }
 
 /** e-mails sent since midnight UTC (Resend counts its day in UTC) */

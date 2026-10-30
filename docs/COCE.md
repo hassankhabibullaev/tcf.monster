@@ -269,8 +269,9 @@ All inside `web/app/coce/room/`, exported from `web/app/coce/room/index.ts`:
   passage's yellow (round 6: people mistook it for the text). The bottom tab bar
   is hidden in a room and in an exam.
 - `PracticeRoom({ section, level, lang, onExit })` — UX §2.5: the top line, the rail, the panel line — CE « Texte
-  complet ○ Indice court » and « Traduction anglaise »; CO « Transcription », « Indice court » and « Traduction
-  anglaise », under the player (no Autoplay any more) —, passage or player left / question right (phone: stacked),
+  complet ○ Indice court » and « Traduction anglaise »; CO « Lecture auto », « Transcription », « Indice court » and
+  « Traduction anglaise », under the player (« Lecture auto » starts each recording when its question opens; on phones
+  a switch row in the ⋯ sheet) —, passage or player left / question right (phone: stacked),
   answer → colours at once and a short soft tone (`room/sound.ts`, Web Audio, two ascending notes when right, one low
   note when wrong; silent under reduced motion; never in exams), the feedback fades in only once an option is chosen
   (« Pourquoi pas C » then « La réponse était B — pourquoi B » / right: « Pourquoi B »), Suivant, Réessayer on red,
@@ -281,8 +282,10 @@ All inside `web/app/coce/room/`, exported from `web/app/coce/room/index.ts`:
   (« Compréhension orale · B1 · n° 12 »), one text field for the person's own words (2 000 characters at most),
   Annuler / Envoyer; sent → toast « Merci, c'est envoyé » and the button reads « Signalé » (check icon, shut) for that
   question from then on (§2b). Help settings live in the account:
-  `me.settings.help = { co: { transcript, hint, english }, ce: { hint, english } }` through the `update` the
-  integrator passes in (`onSettings(patch)`), defaults all off (`co.autoplay` from older rows is ignored).
+  `me.settings.help = { co: { autoplay, transcript, hint, english }, ce: { hint, english } }` through the `update` the
+  integrator passes in (`onSettings(patch)`), defaults all off. On the level list, a level with answers has
+  « Recommencer » (a Sheet to confirm): every question of the level back to grey, one `reset` each, in one bundle
+  (`record.resetLevel`); the exams do not change.
   CO player: the dark pill above (the accent play button, the sun line, « 0:20 / 0:53 »); no plays count and no play
   limit in practice. The transcript is read from its lines: the spoken question (the
   last line ending in « ? ») in its own small box marked « ? » above the speech, the four spoken options (« A. … »
@@ -314,8 +317,8 @@ All inside `web/app/coce/room/`, exported from `web/app/coce/room/index.ts`:
   All four timed exams share this loader.
 - Shared parts (also exported, Pages may reuse): `Player` (`preload="none"` on a page with many of them), `Transcript`,
   `Passage`, `Paper`, `Hint`, `Options`, `Feedback`, `ColourBar`, `Legend`.
-- Audio that fails to load: « Audio indisponible » + Réessayer in place of the player; in an exam the question is
-  skipped and not counted (`skipped: true` in the PATCH answers as `"-"`).
+- Audio that fails to load (after one quiet second try): « Audio indisponible » + Réessayer in place of the player; in
+  the strict exam the question is skipped and not counted; in Free mode it stays open (`skipped: true` in the PATCH answers as `"-"`).
 
 ## 5. Pages (browser)
 

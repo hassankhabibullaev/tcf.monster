@@ -2,6 +2,7 @@
 // reports on questions. Owner only once sign-in exists (ADMIN_OPEN = "0"); every request that changes something must
 // carry the header x-admin: 1, which a page on another site cannot send without the browser asking first.
 import { passedAccess, isOwnerEmail } from "./access.ts";
+import { failedMails } from "./mail.ts";
 import { type Env, json, fail, nowIso, day, daysAgoIso, readJson } from "./util.ts";
 import { currentUser } from "./auth.ts";
 import { blockUser, unblockUser, parseSigns, scoreOf, SIGNS, ASK_AT, BLOCK_AT } from "./guard.ts";
@@ -72,6 +73,7 @@ async function overview(env: Env) {
     activeToday: n("activeToday"), active7: n("active7"), active30: n("active30"),
     answered7: num(work, "answered7"), exams7: num(work, "exams7"), expression7: num(work, "expression7"),
     disputesOpen: num(disputesOpen),
+    mailFailed: await failedMails(env),
     today, joined: joined.filter((r) => String(r.d) >= first), active,
   };
 }
