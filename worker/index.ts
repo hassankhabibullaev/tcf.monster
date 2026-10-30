@@ -3,7 +3,7 @@
 // site is copied to dist/site/); the Worker answers /api/* and picks the page for each address:
 //   tcf.monster/          the public site for a visitor, the dashboard for a signed-in person
 //   tcf.monster/about     the public site, always (the app's wordmark leads there)
-//   /terms /privacy /thanks  the site's pages; any other address is the application
+//   /terms /privacy /thanks /changes  the site's pages (/changes: every release); any other address is the application
 //   app.tcf.monster, www.tcf.monster  the same path on tcf.monster, for good (301; 308 for a write)
 import { type Env, fail, json, holdReached, addWrites } from "./util.ts";
 import { handleAdmin } from "./admin.ts";
@@ -58,7 +58,7 @@ Canonical: https://tcf.monster/.well-known/security.txt
 `;
 
 /** the public site's pages (dist/site/), by address; `/` only for a visitor */
-const SITE_PAGES: Record<string, string> = { "/about": "/site/", "/terms": "/site/terms", "/privacy": "/site/privacy", "/thanks": "/site/thanks", "/robots.txt": "/site/robots.txt" };
+const SITE_PAGES: Record<string, string> = { "/about": "/site/", "/terms": "/site/terms", "/privacy": "/site/privacy", "/thanks": "/site/thanks", "/changes": "/site/changes", "/robots.txt": "/site/robots.txt" };
 /** the site's old French addresses, still in e-mails and bookmarks */
 const MOVED: Record<string, string> = { "/conditions": "/terms", "/confidentialite": "/privacy", "/merci": "/thanks" };
 

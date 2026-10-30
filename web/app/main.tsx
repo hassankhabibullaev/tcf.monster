@@ -18,6 +18,7 @@ import { Home } from "./pages/Home.tsx";
 import { SectionPage, ExamCard, ResultPage, RunningBand, Redirect, EXAMS, seedRunning } from "./coce/pages/index.ts";
 import { PracticeRoute, ExamSalle, ReviewRoute } from "./pages/CoceRooms.tsx";
 import { Profile } from "./pages/Profile.tsx";
+import { ReleaseNote } from "./pages/ReleaseNote.tsx";
 import { NotFound } from "./pages/NotFound.tsx";
 import { Expression } from "./pages/Expression.tsx";
 import { Room } from "./pages/Room.tsx";
@@ -259,7 +260,8 @@ function App() {
     else if ((m = path.match(/^\/mock\/(\d{1,12})\/result$/))) inner = <MockResult id={Number(m[1])} />;
     else if ((m = path.match(/^\/mock\/(\d{1,12})\/result\/(co|ce|ee|eo)$/))) inner = <MockDetail id={Number(m[1])} test={m[2] as "co"} />;
     else inner = <NotFound />;
-    page = <Frame band={<><RunningBand lang={lang} path={path} /><MockBand lang={lang} path={path} /></>}>{inner}</Frame>;
+    // the release note opens over the pages with the rail only, never in a room or an exam
+    page = <><Frame band={<><RunningBand lang={lang} path={path} /><MockBand lang={lang} path={path} /></>}>{inner}</Frame>{me?.name && <ReleaseNote />}</>;
   }
 
   return (

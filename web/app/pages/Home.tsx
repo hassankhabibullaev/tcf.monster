@@ -14,7 +14,6 @@ import { api, daysTo } from "../api.ts";
 import type { Stats, SectionStat } from "../../../worker/stats.ts";
 import { DonateCard } from "./Donate.tsx";
 import { ChatCard } from "./ChatCard.tsx";
-import { ReleaseNote } from "./ReleaseNote.tsx";
 import { MockCard } from "../mock/MockCard.tsx";
 import { workedLabel } from "./worked.ts";
 import "./home.css";
@@ -238,7 +237,6 @@ export function Home() {
   return (
     <div className="home">
       <Hello />
-      <ReleaseNote />
       <section className="card ha-weeks">
         <h2><span className="desk-only">{t.activityTitle}</span><span className="mob-only">{h.sevenDays}</span><span className="ha-weeks-now mob-only">{h.inMinutes}</span></h2>
         {stats ? <div className="weeks-row"><Weeks activity={stats.activity} work={stats.work} lang={lang} /><Facts f={stats.facts} /></div>

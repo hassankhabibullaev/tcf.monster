@@ -10,7 +10,7 @@ const page = (name: string) => new Response(`<!doctype html><html lang="fr"><bod
 const ASSETS = {
   fetch: async (input: Request | string) => {
     const p = new URL(typeof input === "string" ? input : input.url).pathname;
-    const pages: Record<string, string> = { "/app/": "APP", "/admin/": "ADMIN", "/site/": "SITE", "/site/terms": "TERMS", "/site/privacy": "PRIVACY", "/site/thanks": "THANKS" };
+    const pages: Record<string, string> = { "/app/": "APP", "/admin/": "ADMIN", "/site/": "SITE", "/site/terms": "TERMS", "/site/privacy": "PRIVACY", "/site/thanks": "THANKS", "/site/changes": "CHANGES" };
     if (pages[p]) return page(pages[p]);
     if (p === "/site/assets/app-icon-96.png") return new Response("png", { headers: { "content-type": "image/png" } });
     return new Response("not found", { status: 404 });
@@ -42,6 +42,7 @@ describe("tcf.monster, one address", () => {
     expect((await qa.call("/terms")).text).toContain("TERMS");
     expect((await qa.call("/privacy/")).text).toContain("PRIVACY");
     expect((await qa.call("/thanks")).text).toContain("THANKS");
+    expect((await qa.call("/changes")).text).toContain("CHANGES"); // every release, public
     const old = await qa.call("/conditions");
     expect(old.status).toBe(301);
     expect(old.headers.get("location")).toBe("https://tcf.monster/terms");

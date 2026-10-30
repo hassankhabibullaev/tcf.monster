@@ -60,7 +60,7 @@ window.EN = {
   q4: "On the phone too?", a4: "Yes: phone, tablet and laptop. Your progress and marks follow you from one device to another; your texts and recordings stay on the one where you made them.",
   footTag: "The TCF Canada, free, for everyone.",
   footSite: "The site", footInfo: "Information",
-  terms: "Terms of use", privacy: "Privacy", contact: "Contact", source: "Source code",
+  terms: "Terms of use", privacy: "Privacy", changesLink: "What's new", contact: "Contact", source: "Source code",
   merciTitle: "Thank you!", merciBody: "Your gift keeps tcf.monster online, free, for everyone.", merciBack: "Back to tcf.monster",
   disclaimer: "tcf.monster is not affiliated with France Éducation international. TCF is a trademark of France Éducation international."
 };
@@ -101,4 +101,27 @@ Object.assign(window.EN, {
 "legP11": "Cookies",
 "legP12": "A single cookie, to stay signed in. No tracking cookies: that is why there is no banner.",
 "legP13": "A question: <a href=\"mailto:bonjour@tcf.monster\">bonjour@tcf.monster</a>."
+});
+
+// the releases page (changes.html)
+Object.assign(window.EN, {
+"chg1": "What's new",
+"chg2": "Every tcf.monster release, what it fixes and what it adds. See a mistake in a question? Press « Report a problem » under the question. A technical issue? Write to us on Telegram: <a href=\"https://t.me/tcfmonsteradmin\" rel=\"noopener\">@tcfmonsteradmin</a>.",
+"chg3": "30 October 2026 · your reports",
+"chg4": "5 technical bugs, 9 content mistakes, 2 new features you asked for. Thank you to everyone who wrote to us.",
+"chg5": "Technical bugs",
+"chg6": "E-mail codes: some did not go out (the day's sending quota used up while the backup service was down, or an address with a dot right before the @). A mistyped address is now flagged at once, « Resend » unlocks after a minute, and a line reminds you to check your spam folder.",
+"chg7": "The sign-in page could stay blank. If loading is slow or fails, a message, « Reload » and our contact now show.",
+"chg8": "Listening exam: questions skipped by themselves with « Audio unavailable », and their answers could no longer be tapped (touch screens included). Fixed.",
+"chg9": "Reading exam on a phone: the text slid under the question and the answers. It scrolls in its own box again.",
+"chg10": "Questions in Free mode now stay open when the audio fails, with « Retry ».",
+"chg11": "Content mistakes",
+"chg12": "Five answer keys corrected, with their explanations: listening exam 3 question 2; listening A1 questions 7 (the phone, not cakes) and 9; listening A2, the present for Tom; reading C1, Pascale's message.",
+"chg13": "92 listening questions showed only « … » as their transcript: the question and the four options now show.",
+"chg14": "Listening A2, question 11: « cul » is now « pull ».",
+"chg15": "Two confusing explanations rewritten (listening A2: Julien at the metro, Marie running late).",
+"chg16": "Thirteen more answer keys checked one by one: they were right.",
+"chg17": "New features you asked for",
+"chg18": "« Autoplay » in listening practice: the recording starts by itself at each question.",
+"chg19": "« Start over » a whole level at once, on the list of levels."
 });
